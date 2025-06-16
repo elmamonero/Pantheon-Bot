@@ -1,10 +1,10 @@
-const yts = require('yt-search');
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-const { pipeline } = require('stream');
-const { promisify } = require('util');
-const ffmpeg = require('fluent-ffmpeg');
+import yts from 'yt-search';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { pipeline } from 'stream';
+import { promisify } from 'util';
+import ffmpeg from 'fluent-ffmpeg';
 
 const streamPipeline = promisify(pipeline);
 const formatAudio = ['mp3', 'm4a', 'webm', 'acc', 'flac', 'opus', 'ogg', 'wav'];
@@ -112,7 +112,7 @@ const handler = async (msg, { conn, text }) => {
 
         const { downloadUrl } = await ddownr.download(url, 'mp3');
 
-        const tmpDir = path.join(__dirname, '../tmp');
+        const tmpDir = path.join(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
         const rawPath = path.join(tmpDir, `${Date.now()}_raw.mp3`);
         const finalPath = path.join(tmpDir, `${Date.now()}_compressed.mp3`);
@@ -164,4 +164,5 @@ const handler = async (msg, { conn, text }) => {
 handler.command = ['play5'];
 handler.tags = ['downloader'];
 handler.help = ['play5 <búsqueda>'];
-module.exports = handler;
+
+export default handler;
