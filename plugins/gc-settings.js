@@ -2,15 +2,26 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
     let isClose = {
         'abrir': 'not_announcement',
         'cerrar': 'announcement',
-    }[(args[0] || '')]
-    if (isClose === undefined)
-        await conn.reply(m.chat, `*[ 🔐 ] Elija una opción.*\n\n*${usedPrefix + command}* abrir\n*${usedPrefix + command}* cerrar`, m, rcanal)
-    await conn.groupSettingUpdate(m.chat, isClose)
-}
-handler.help = ['group *<abrir/cerrar>*']
-handler.tags = ['gc']
-handler.command = ['group', 'grupo'] 
-handler.admin = true
-handler.botAdmin = true
+    }[(args[0] || '').toLowerCase()];
 
-export default handler
+    if (isClose === undefined) {
+        return await conn.reply(m.chat, `*🔐 Elige una opción.*\n\n*${usedPrefix + command}* abrir\n*${usedPrefix + command}* cerrar`, m, rcanal);
+    }
+
+    try {
+        console.log('Intentando cambiar configuración:', isClose);
+        console.log('ID del grupo:', m.chat);
+        await conn.groupSettingUpdate(m.chat, isClose);
+        // Sin confirmación adicional
+    } catch (err) {
+        console.error('Error en groupSettingUpdate:', err);
+        await conn.reply(m.chat, `⚠️ Error al actualizar la configuración del grupo: ${err.message || err}`, m);
+    }
+};
+handler.help = ['group *<abrir/cerrar>*'];
+handler.tags = ['gc'];
+handler.command = ['group', 'grupo'];
+handler.admin = true;
+handler.botAdmin = true;
+
+export default handler;
