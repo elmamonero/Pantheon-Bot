@@ -97,4 +97,3 @@ handler.tags = ['rg']
 handler.command = ['testrg']
 
 export default handler
-export default handler
