@@ -1,9 +1,7 @@
-import axios from 'axios'
 import { createHash } from 'crypto'
-import PhoneNumber from 'awesome-phonenumber'
-import moment from 'moment-timezone'
 
-let Reg = /\|?(.*)([.|] *?)([0-9]*)$/i
+// Define tu variable 'club' aquí, reemplázala por lo que quieras mostrar en 'body'
+let club = 'Este es el contenido del body que quieres mostrar en la respuesta del anuncio.'
 
 let handler = async function (m, { conn, text, args, usedPrefix, command }) {
     let user = global.db.data.users[m.sender]
@@ -53,16 +51,14 @@ let handler = async function (m, { conn, text, args, usedPrefix, command }) {
     regbot += `ᦷᩘᦷ     ݂   🎫 ፡ \`\`\`12 Tokens\`\`\`\n\n`
     regbot += `> 𝖢𝗈𝗅𝗈𝖼𝖺 *#profile* 𝗉𝖺𝗋𝖺 𝗏𝖾𝗋 𝗍𝗎 𝗉𝖾𝗋𝖿𝗂𝗅`
 
-    // Definir la variable 'club' con el contenido deseado
-    let club = 'Este es el contenido del body que quieres mostrar en la respuesta del anuncio.'
-
+    // Envía mensaje con un externalAdReply sin usar funciones internas
     await m.react('💌')
     await conn.sendMessage(m.chat, {
         text: regbot,
         contextInfo: {
             externalAdReply: {
                 title: '෫໋ׅׄ𝆬🍃ິ⃨ 𝖱𝖾𝗀𝗂𝗌𝗍𝗋𝗈 - 𝖲𝗁𝖺𝖽𝗈𝗐 ׅ𝖴𝗅𝗍𝗋𝖺  ׄ ׄ𑁍̵ ֕︵۪۪۪۪᷼ ּ',
-                body: club, // Aquí usamos la variable definida
+                body: club, // Aquí usamos 'club' definido antes
                 thumbnailUrl: 'https://files.catbox.moe/nwqdwh.jpg',
                 sourceUrl: 'https://whatsapp.com/channel/0029Vb1X1TDElah1FEQ4xm0K',
                 mediaType: 1,
@@ -70,7 +66,7 @@ let handler = async function (m, { conn, text, args, usedPrefix, command }) {
                 renderLargerThumbnail: true
             }
         }
-    }, { quoted: fkontak });
+    }, { quoted: m }); // Usa 'm' en vez de 'fkontak', a menos que sea específico
 
 let chtxt = `👤 *𝚄𝚂𝙴𝚁:* ${m.pushName || 'Anónimo'}
 ☕ *𝚁𝙴𝙶𝙸𝚂𝚃𝚁𝙾:* ${user.name}
@@ -100,4 +96,5 @@ handler.help = ['reg']
 handler.tags = ['rg']
 handler.command = ['testrg']
 
+export default handler
 export default handler
