@@ -137,7 +137,8 @@ ${readMore}
 ⠞🌿੭‎ ${usedPrefix}setwelcome *texto*
 ⠞🌿੭‎ ${usedPrefix}setbye *texto*
 ⠞🌿੭‎ ${usedPrefix}setkick *texto*
-⠞🌿੭‎ ${usedPrefix}groupdesc *texto*
+⠞🌿੭‎ ${usedPrefix}setdesc *texto*
+⠞🌿੭‎ ${usedPrefix}desc
 ⠞🌿੭‎ ${usedPrefix}setbye *texto*
 ⠞🌿੭‎ ${usedPrefix}promote *@tag*
 ⠞🌿੭‎ ${usedPrefix}demote *@tag*
