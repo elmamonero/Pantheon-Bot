@@ -2,7 +2,7 @@ import fetch from 'node-fetch'
 const { generateWAMessageContent, generateWAMessageFromContent, proto } = (await import('@whiskeysockets/baileys')).default
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
-if (!text) return m.reply('*[ ℹ️ ] Ingresa el texto de lo que quieres buscar en Spotify*\n\n*[ 💡 ] Ejemplo:* .spotifysearch Gata Only');
+if (!text) return m.reply('*🌴 Ingresa el texto de lo que quieres buscar en Spotify*\n> *\`Ejemplo:\`* .spotifysearch Gata Only');
 await m.react('🕓');
 
 try {
@@ -43,7 +43,7 @@ buttons: [ */
                 buttons: [
 {
 "name": "cta_copy",
-"buttonParamsJson": "{\"display_text\":\"ძᥱsᥴᥲrgᥲr ᥲᥙძі᥆\",\"id\":\"123456789\",\"copy_code\":\".spotify " + track.url + "\"}"
+"buttonParamsJson": "{\"display_text\":\"𝖣𝖾𝗌𝖼𝖺𝗋𝗀𝖺𝗋 𝖺𝗎𝖽𝗂𝗈\",\"id\":\"123456789\",\"copy_code\":\".spotify " + track.url + "\"}"
 },
 ]
 })
@@ -59,7 +59,7 @@ deviceListMetadataVersion: 2
 },
 interactiveMessage: proto.Message.InteractiveMessage.fromObject({
 body: proto.Message.InteractiveMessage.Body.create({text: '*`\Resultados de:\`* ' + `${text}`}),
-footer: proto.Message.InteractiveMessage.Footer.create({text: '_\`ꜱ\` \`ᴘ\` \`-\` \`ꜱ\` \`ᴇ\` \`ᴀ\` \`ʀ\` \`ᴄ\` \`ʜ\`_'}),
+footer: proto.Message.InteractiveMessage.Footer.create({text: 'Spotify - Search'}),
 header: proto.Message.InteractiveMessage.Header.create({hasMediaAttachment: false}),
 carouselMessage: proto.Message.InteractiveMessage.CarouselMessage.fromObject({cards: [...push]})
 })
@@ -75,6 +75,6 @@ console.error(error)
 
 handler.help = ["spotifysearch *<texto>*"]
 handler.tags = ["search"]
-handler.command = /^(spotifysearch|spsearch)$/i
+handler.command = /^(spotifysearch|spsearch|spotifys)$/i
 
 export default handler
