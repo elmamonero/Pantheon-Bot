@@ -1,6 +1,5 @@
 import yts from 'yt-search';
 import fetch from 'node-fetch';
-import { prepareWAMessageMedia, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 
 const club = '🤖 MiBot - Club Oficial';
 
@@ -14,7 +13,6 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
   }
 
   await m.react('🕒');
-
   try {
     const query = args.join(" ");
     const searchResults = await searchVideos(query);
@@ -40,14 +38,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     messageText += `≡ *🌴 Autor* ${video.canal || 'Desconocido'}\n`;
     messageText += `≡ *🌵 Url* ${video.url || 'No disponible'}\n`;
 
-    // Botones rápidos de Spotify
-    const spotifyButtons = spotifyResults.slice(0, 3).map((s, i) => ({
-      buttonId: `${usedPrefix}spotify ${s.url}`,
-      buttonText: { displayText: `🎵 ${s.titulo.slice(0, 25)}` },
-      type: 1,
-    }));
-
-    // Sección combinada
+    // Secciones combinadas
     const sections = [];
 
     if (searchResults.length > 1) {
@@ -66,7 +57,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       sections.push({ title: '📺 YouTube - Resultados', rows: ytRows });
     }
 
-    if (spotifyResults.length > 0) {
+    if (spotifyResults.length) {
       const spRows = spotifyResults.slice(0, 10).map((s, i) => ({
         title: `${i + 1}┃ ${s.titulo}`,
         description: `Duración: ${s.duracion || 'ND'}`,
@@ -96,26 +87,25 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
             buttonText: { displayText: '𝖵𝗂𝖽𝖾𝗈 📹' },
             type: 1,
           }
-        ] : []),
-        ...spotifyButtons
+        ] : [])
       ],
-      ...(sections.length > 0 ? {
+      ...(sections.length ? {
         headerType: 1,
         viewOnce: true,
         nativeFlowInfo: {
           name: 'single_select',
           paramsJson: JSON.stringify({
             title: '📥 Resultados YouTube + Spotify',
-            sections: sections,
+            sections
           }),
         },
         type: 4,
-      } : {}),
+      } : {})
     }, { quoted: m });
 
     await m.react('✅');
   } catch (e) {
-    console.error('[Handler] Error:', e.message);
+    console.error('[Handler] Error:', e);
     await m.react('✖️');
     conn.reply(m.chat, '*`Error al procesar tu solicitud.`*\n' + e.message, m);
   }
@@ -126,7 +116,6 @@ handler.tags = ['descargas'];
 handler.command = ['play7'];
 export default handler;
 
-// Buscar videos en YouTube
 async function searchVideos(query) {
   try {
     const res = await yts(query);
@@ -145,7 +134,6 @@ async function searchVideos(query) {
   }
 }
 
-// Buscar canciones en Spotify
 async function searchSpotify(query) {
   try {
     const res = await fetch(`https://delirius-apiofc.vercel.app/search/spotify?q=${encodeURIComponent(query)}`);
