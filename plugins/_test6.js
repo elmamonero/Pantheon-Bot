@@ -27,11 +27,18 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
     let thumbnail;
     try {
+      if (!video.miniatura) throw new Error('Miniatura no disponible');
       const res = await fetch(video.miniatura);
+      if (!res.ok) throw new Error('Error al descargar miniatura');
       thumbnail = await res.buffer();
     } catch {
+      // Imagen por defecto si falla la miniatura
       const res = await fetch('https://telegra.ph/file/36f2a1bd2aaf902e4d1ff.jpg');
       thumbnail = await res.buffer();
+    }
+
+    if (!thumbnail || thumbnail.length === 0) {
+      throw new Error('Miniatura inválida o vacía');
     }
 
     let messageText = `\`\`\`◜YouTube - Download◞\`\`\`\n\n`;
@@ -40,27 +47,10 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     messageText += `≡ *🌴 Autor* ${video.canal || 'Desconocido'}\n`;
     messageText += `≡ *🌵 Url* ${video.url}\n`;
 
-    // Opciones YouTube para menú nativo (opcional)
-    const ytSections = searchResults.slice(1, 11).map((v, index) => ({
-      title: `${index + 1}┃ ${v.titulo}`,
-      rows: [
-        {
-          title: `🎶 Descargar MP3`,
-          description: `Duración: ${v.duracion || 'No disponible'}`,
-          id: `${usedPrefix}ytmp3 ${v.url}`
-        },
-        {
-          title: `🎥 Descargar MP4`,
-          description: `Duración: ${v.duracion || 'No disponible'}`,
-          id: `${usedPrefix}ytmp4 ${v.url}`
-        }
-      ]
-    }));
-
-    // Botones simples para Spotify simulando lista (máximo 10)
-    const spotifyButtons = spotifyResults.slice(0, 10).map((s, i) => ({
+    // Botones simples para Spotify (máximo 3)
+    const spotifyButtons = spotifyResults.slice(0, 3).map((s, i) => ({
       buttonId: `${usedPrefix}spotify ${s.url}`,
-      buttonText: { displayText: `${i + 1}┃ ${s.titulo} (${s.duracion || 'No disponible'})` },
+      buttonText: { displayText: `Spotify ${i + 1}` },
       type: 1,
     }));
 
@@ -78,31 +68,24 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       }
     ];
 
-    // Combina todos los botones (máximo 5 botones por mensaje es recomendable)
-    // Por eso dividimos en grupos para enviar varios mensajes si hay muchos botones
-    const allButtons = [...mainButtons, ...spotifyButtons];
+    const buttons = [...mainButtons, ...spotifyButtons];
 
-    // WhatsApp limita a 5 botones por mensaje, así que enviamos en lotes de 5
-    const chunkSize = 5;
-    for (let i = 0; i < allButtons.length; i += chunkSize) {
-      const buttonsChunk = allButtons.slice(i, i + chunkSize);
-      await conn.sendMessage(m.chat, {
-        image: i === 0 ? thumbnail : undefined,
-        caption: i === 0 ? messageText : undefined,
-        footer: club,
-        buttons: buttonsChunk,
-        headerType: i === 0 ? 4 : 1,
-        contextInfo: {
-          mentionedJid: [m.sender],
-          forwardingScore: 999,
-          isForwarded: true
-        }
-      }, { quoted: m });
-    }
+    await conn.sendMessage(m.chat, {
+      image: thumbnail,
+      caption: messageText,
+      footer: club,
+      buttons,
+      headerType: 1,
+      contextInfo: {
+        mentionedJid: [m.sender],
+        forwardingScore: 999,
+        isForwarded: true
+      }
+    }, { quoted: m });
 
     await m.react('✅');
   } catch (e) {
-    console.error(e);
+    console.error('[play] Error:', e);
     await m.react('✖️');
     conn.reply(m.chat, '*`Error al buscar el video.`*\n' + e.message, m);
   }
@@ -128,7 +111,7 @@ async function searchVideos(query) {
       duracion: video.duration?.timestamp || 'No disponible'
     }));
   } catch (error) {
-    console.error('Error en yt-search:', error.message);
+    console.error('[searchVideos] Error:', error);
     return [];
   }
 }
@@ -145,7 +128,7 @@ async function searchSpotify(query) {
       duracion: track.duration || 'No disponible'
     }));
   } catch (error) {
-    console.error('Error en Spotify API:', error.message);
+    console.error('[searchSpotify] Error:', error);
     return [];
   }
 }
