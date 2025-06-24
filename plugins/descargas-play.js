@@ -115,7 +115,6 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
     await m.react('✅');
   } catch (e) {
-    console.error('[Handler] Error:', e.message);
     await m.react('✖️');
     conn.reply(m.chat, '*`Error al procesar tu solicitud.`*\n' + e.message, m);
   }
@@ -139,8 +138,7 @@ async function searchVideos(query) {
       vistas: video.views || 'No disponible',
       duracion: video.duration?.timestamp || 'No disponible'
     }));
-  } catch (error) {
-    console.error('[YouTube] Error:', error.message);
+  } catch {
     return [];
   }
 }
@@ -156,8 +154,7 @@ async function searchSpotify(query) {
       url: track.url,
       duracion: track.duration || 'No disponible'
     }));
-  } catch (error) {
-    console.error('[Spotify] Error:', error.message);
+  } catch {
     return [];
   }
 }
