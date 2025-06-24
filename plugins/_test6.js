@@ -53,7 +53,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     messageText += `≡ *🌴 Autor* ${video.canal || 'Desconocido'}\n`;
     messageText += `≡ *🌵 Url* ${video.url}\n`;
 
-    // Opciones de YouTube adicionales
+    // Opciones de YouTube adicionales para menú nativo
     const ytSections = searchResults.slice(1, 11).map((v, index) => ({
       title: `${index + 1}┃ ${v.titulo}`,
       rows: [
@@ -71,18 +71,13 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     }));
     console.log('[Handler] Secciones YouTube para menú:', ytSections.length);
 
-    // Opciones de Spotify
-    const spotifySections = Array.isArray(spotifyResults) ? spotifyResults.slice(0, 10).map((s, index) => ({
-      title: `${index + 1}┃ ${s.titulo}`,
-      rows: [
-        {
-          title: `🎶 Descargar Audio`,
-          description: `Duración: ${s.duracion || 'No disponible'}`,
-          id: `${usedPrefix}spotify ${s.url}`
-        }
-      ]
-    })) : [];
-    console.log('[Handler] Secciones Spotify para menú:', spotifySections.length);
+    // Botones simples para Spotify (máximo 3 para no saturar)
+    const spotifyButtons = spotifyResults.slice(0, 3).map((s, i) => ({
+      buttonId: `${usedPrefix}spotify ${s.url}`,
+      buttonText: { displayText: `Spotify ${i + 1}` },
+      type: 1,
+    }));
+    console.log('[Handler] Botones Spotify creados:', spotifyButtons.length);
 
     await conn.sendMessage(m.chat, {
       image: thumbnail,
@@ -104,29 +99,22 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
           buttonText: { displayText: '𝖵𝗂𝖽𝖾𝗈' },
           type: 1,
         },
-        ...(ytSections.length > 0 ? [{
-          type: 4,
-          nativeFlowInfo: {
-            name: 'single_select',
-            paramsJson: JSON.stringify({
-              title: '𝖱𝖾𝗌𝗎𝗅𝗍𝖺𝖽𝗈𝗌  𝖸𝗈𝗎𝖳𝗎𝖻𝖾',
-              sections: ytSections,
-            }),
-          },
-        }] : []),
-        ...(spotifySections.length > 0 ? [{
-          type: 4,
-          nativeFlowInfo: {
-            name: 'single_select',
-            paramsJson: JSON.stringify({
-              title: '𝖱𝖾𝗌𝗎𝗅𝗍𝖺𝖽𝗈𝗌  𝖲𝗉𝗈𝗍𝗂𝖿𝗒',
-              sections: spotifySections,
-            }),
-          },
-        }] : [])
+        ...spotifyButtons
       ],
-      headerType: 1,
-      viewOnce: true
+      // Menú nativo solo para YouTube (opcional)
+      ...(ytSections.length > 0 ? {
+        footer: club,
+        headerType: 1,
+        viewOnce: true,
+        nativeFlowInfo: {
+          name: 'single_select',
+          paramsJson: JSON.stringify({
+            title: '𝖱𝖾𝗌𝗎𝗅𝗍𝖺𝖽𝗈𝗌  𝖸𝗈𝗎𝖳𝗎𝖻𝖾',
+            sections: ytSections,
+          }),
+        },
+        type: 4,
+      } : {}),
     }, { quoted: m });
 
     await m.react('✅');
