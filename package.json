@@ -10,11 +10,11 @@
 "plugins": "plugins"
 },
 "scripts": {
-"start": "node main.js",
-"qr": "main.js qr",
-"code": "main.js code",
+"start": "node index.js",
+"qr": "index.js qr",
+"code": "index.js code",
 "test": "node test.js",
-"test2": "nodemon main.js",
+"test2": "nodemon index.js",
 "eslint": "eslint .",
 "eslintfix": "eslint --fix ."
 },
@@ -32,7 +32,7 @@
 "license": "GPL-3.0-or-later",
 "dependencies": {
 "@vitalets/google-translate-api": "^9.2.0",
-"@whiskeysockets/baileys": "npm:@izumi-xyz/meta",
+"@whiskeysockets/baileys": "github:GataNina-Li/Baileys",
 "google-libphonenumber": "latest",
 "@adiwajshing/keyed-db": "^0.2.4",
 "@bochilteam/scraper": "^5.0.1",
@@ -52,7 +52,6 @@
 "groq-sdk": "latest",
 "chalk": "^5.1.0",
 "url-file-size": "^1.0.5-1",
-"fluid-spotify.js": "*",
 "cheerio": "npm:cheerio@1.0.0-rc.12",
 "express": "^4.18.1",
 "file-type": "^18.0.0",
