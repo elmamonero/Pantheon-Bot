@@ -104,7 +104,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
           nativeFlowInfo: {
             name: 'single_select',
             paramsJson: JSON.stringify({
-              title: '𝖱𝖾𝗌𝗎𝗅𝗍𝖺𝖽𝗈𝗌  𝖲𝗉𝗈𝗍𝗂𝖿𝗒',
+              title: '𝖱𝖾𝗌𝗎𝗅𝗍𝖺𝖽1𝗈𝗌  𝖲𝗉𝗈𝗍𝗂𝖿𝗒',
               sections: spotifySections,
             }),
           },
