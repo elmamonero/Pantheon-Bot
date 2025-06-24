@@ -25,6 +25,17 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
     const video = searchResults[0];
 
+    // Construir el texto para enviar separado
+    let messageText = '◜YouTube - Download◞\n\n';
+    messageText += `*${video.titulo}*\n\n`;
+    messageText += `≡ ⏳ Duración: ${video.duracion || 'No disponible'}\n`;
+    messageText += `≡ 🌴 Autor: ${video.canal || 'Desconocido'}\n`;
+    messageText += `≡ 🌵 Url: ${video.url}\n`;
+
+    // Primero envía el texto
+    await conn.sendMessage(m.chat, { text: messageText }, { quoted: m });
+
+    // Descarga la miniatura
     let thumbnail;
     try {
       if (!video.miniatura) throw new Error('Miniatura no disponible');
@@ -39,13 +50,6 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     if (!thumbnail || thumbnail.length === 0) {
       throw new Error('Miniatura inválida o vacía');
     }
-
-    // Construir el texto con saltos de línea explícitos
-    let messageText = '◜YouTube - Download◞\n\n';
-    messageText += `*${video.titulo}*\n\n`;
-    messageText += `≡ ⏳ Duración: ${video.duracion || 'No disponible'}\n`;
-    messageText += `≡ 🌴 Autor: ${video.canal || 'Desconocido'}\n`;
-    messageText += `≡ 🌵 Url: ${video.url}\n`;
 
     // Botones para YouTube y Spotify
     const spotifyButtons = spotifyResults.slice(0, 3).map((s, i) => ({
@@ -69,12 +73,12 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
     const buttons = [...mainButtons, ...spotifyButtons];
 
+    // Luego envía la imagen con botones pero sin caption
     await conn.sendMessage(m.chat, {
       image: thumbnail,
-      caption: messageText,
       footer: club,
       buttons,
-      headerType: 4, // 4 = imagen con botones
+      headerType: 4,
       contextInfo: {
         mentionedJid: [m.sender],
         forwardingScore: 999,
