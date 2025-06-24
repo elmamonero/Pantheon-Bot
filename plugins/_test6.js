@@ -32,7 +32,6 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       if (!res.ok) throw new Error('Error al descargar miniatura');
       thumbnail = await res.buffer();
     } catch {
-      // Imagen por defecto si falla la miniatura
       const res = await fetch('https://telegra.ph/file/36f2a1bd2aaf902e4d1ff.jpg');
       thumbnail = await res.buffer();
     }
@@ -41,20 +40,20 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       throw new Error('Miniatura inválida o vacía');
     }
 
-    let messageText = `\`\`\`◜YouTube - Download◞\`\`\`\n\n`;
+    // Construir el texto con saltos de línea explícitos
+    let messageText = '◜YouTube - Download◞\n\n';
     messageText += `*${video.titulo}*\n\n`;
-    messageText += `≡ *⏳ Duración* ${video.duracion || 'No disponible'}\n`;
-    messageText += `≡ *🌴 Autor* ${video.canal || 'Desconocido'}\n`;
-    messageText += `≡ *🌵 Url* ${video.url}\n`;
+    messageText += `≡ ⏳ Duración: ${video.duracion || 'No disponible'}\n`;
+    messageText += `≡ 🌴 Autor: ${video.canal || 'Desconocido'}\n`;
+    messageText += `≡ 🌵 Url: ${video.url}\n`;
 
-    // Botones simples para Spotify (máximo 3)
+    // Botones para YouTube y Spotify
     const spotifyButtons = spotifyResults.slice(0, 3).map((s, i) => ({
       buttonId: `${usedPrefix}spotify ${s.url}`,
       buttonText: { displayText: `Spotify ${i + 1}` },
       type: 1,
     }));
 
-    // Botones básicos para el video principal
     const mainButtons = [
       {
         buttonId: `${usedPrefix}ytmp3 ${video.url}`,
@@ -75,7 +74,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       caption: messageText,
       footer: club,
       buttons,
-      headerType: 1,
+      headerType: 4, // 4 = imagen con botones
       contextInfo: {
         mentionedJid: [m.sender],
         forwardingScore: 999,
@@ -93,7 +92,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
 handler.help = ['play <texto>'];
 handler.tags = ['descargas'];
-handler.command = ['play6'];
+handler.command = ['play'];
 
 export default handler;
 
