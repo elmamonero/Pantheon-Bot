@@ -13,6 +13,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
   }
 
   await m.react('🕒');
+
   try {
     const query = args.join(" ");
     const searchResults = await searchVideos(query);
@@ -34,11 +35,15 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       thumbnail = await res.buffer();
     }
 
-    let messageText = `\`\`\`◜YouTube - Download◞\`\`\`\n\n`;
-    messageText += `*${video.titulo || query}*\n\n`;
-    messageText += `≡ *⏳ Duración* ${video.duracion || 'No disponible'}\n`;
-    messageText += `≡ *🌴 Autor* ${video.canal || 'Desconocido'}\n`;
-    messageText += `≡ *🌵 Url* ${video.url || 'No disponible'}\n`;
+    const messageText = [
+      '```◜YouTube - Download◞```',
+      '',
+      `*${video.titulo || query}*`,
+      '',
+      `≡ *⏳ Duración* ${video.duracion || 'No disponible'}`,
+      `≡ *🌴 Autor* ${video.canal || 'Desconocido'}`,
+      `≡ *🌵 Url* ${video.url || 'No disponible'}`,
+    ].join('\n');
 
     const buttons = [];
 
@@ -69,12 +74,12 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       image: thumbnail,
       caption: messageText,
       footer: club,
+      buttons,
       contextInfo: {
         mentionedJid: [m.sender],
-        forwardingScore: 999,
+        forwardingScore: 1000,
         isForwarded: true
       },
-      buttons,
       headerType: 1
     }, { quoted: m });
 
@@ -86,7 +91,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
   }
 };
 
-handler.help = ['play <texto>'];
+handler.help = ['play7 <texto>'];
 handler.tags = ['descargas'];
 handler.command = ['play7'];
 export default handler;
