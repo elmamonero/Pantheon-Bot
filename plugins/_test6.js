@@ -1,6 +1,5 @@
 import yts from 'yt-search';
 import fetch from 'node-fetch';
-import { prepareWAMessageMedia, generateWAMessageFromContent } from '@whiskeysockets/baileys';
 
 const xdownload = '⬇️'; // Emoji o texto para el prompt
 const club = 'Bot de Descargas'; // Footer personalizado
@@ -70,14 +69,18 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     const mainSpotify = !mainVideo && spotifyResults.length ? spotifyResults[0] : null;
 
     // Preparar thumbnail (usar imagen por defecto si no hay)
-    let thumbnailBuffer;
+    let thumbnailBuffer = null;
     if (mainVideo) {
       try {
         const res = await fetch(mainVideo.miniatura);
         thumbnailBuffer = await res.buffer();
       } catch {
-        const res = await fetch('https://telegra.ph/file/36f2a1bd2aaf902e4d1ff.jpg');
-        thumbnailBuffer = await res.buffer();
+        try {
+          const res = await fetch('https://telegra.ph/file/36f2a1bd2aaf902e4d1ff.jpg');
+          thumbnailBuffer = await res.buffer();
+        } catch {
+          thumbnailBuffer = null;
+        }
       }
     } else {
       // Imagen genérica para Spotify
@@ -90,7 +93,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     }
 
     // Construir texto del mensaje
-    let caption = '``````\n\n';
+    let caption = '';
 
     if (mainVideo) {
       caption += `*${mainVideo.titulo}*\n\n`;
@@ -127,23 +130,26 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
       });
     }
 
-    // Enviar mensaje con imagen, texto y botones
-    await conn.sendMessage(
-      m.chat,
-      {
-        image: thumbnailBuffer ? { buffer: thumbnailBuffer } : undefined,
-        caption,
-        footer: club,
-        buttons,
-        headerType: 1,
-        contextInfo: {
-          mentionedJid: [m.sender],
-          forwardingScore: 999,
-          isForwarded: true
-        }
-      },
-      { quoted: m }
-    );
+    // Preparar contenido del mensaje
+    const messageContent = {
+      caption,
+      footer: club,
+      buttons,
+      headerType: 1,
+      contextInfo: {
+        mentionedJid: [m.sender],
+        forwardingScore: 999,
+        isForwarded: true
+      }
+    };
+
+    // Solo agregar imagen si el buffer es válido
+    if (thumbnailBuffer && Buffer.isBuffer(thumbnailBuffer)) {
+      messageContent.image = { buffer: thumbnailBuffer };
+    }
+
+    // Enviar mensaje
+    await conn.sendMessage(m.chat, messageContent, { quoted: m });
 
     await m.react('✅'); // Confirmación de éxito
   } catch (error) {
