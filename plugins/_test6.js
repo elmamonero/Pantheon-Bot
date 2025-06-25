@@ -16,6 +16,7 @@ const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   const senderJid = msg.key.participant || msg.key.remoteJid;
   const senderNum = senderJid.replace(/[^0-9]/g, "");
+  const senderTag = `@${senderNum}`;
 
   if (!chatId.endsWith("@g.us")) {
     return await conn.sendMessage(
@@ -45,19 +46,24 @@ const handler = async (msg, { conn, args }) => {
     );
   }
 
-  const mentionList = participants.map(p => `➥ @${p.id.split("@")[0]}`).join("\n");
-  const extraMsg = args.join(" ");
-  let finalMsg = "━〔 *📢 INVOCACIÓN 📢* 〕━➫\n";
-  finalMsg += "٩(͡๏̯͡๏)۶ Por cortana 2.0 SubBot ٩(͡๏̯͡๏)۶\n";
-  finalMsg += `👥 Miembros en el grupo: ${memberCount}\n`;
-  if (extraMsg.trim().length > 0) {
-    finalMsg += `\n❑ Mensaje: ${extraMsg}\n\n`;
-  } else {
-    finalMsg += "\n";
-  }
-  finalMsg += mentionList;
-
   const mentionIds = participants.map(p => p.id);
+  const mentionList = participants.map(p => `│➜ @${p.id.split("@")[0]}`).join("\n");
+
+  const extraMsg = args.join(" ");
+  const aviso = extraMsg.trim().length > 0 ? `*AVISO:* ${extraMsg}` : "*AVISO:* ¡Atención a todos!";
+
+  const finalMsg = `╭━[ INVOCACIÓN MASIVA ]━⬣
+┃🔹 PANTHEON BOT ⚡
+┃👤 Invocado por: ${senderTag}
+┃👥 Miembros del grupo: ${memberCount}
+╰━━━━━━━⋆★⋆━━━━━━━⬣
+
+${aviso}
+
+📲 Etiquetando a todos los miembros...
+
+${mentionList}
+╰─[ Pantheon Bot WhatsApp ⚡ ]─`;
 
   await conn.sendMessage(
     chatId,
