@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-export const handler = async (msg, { conn, args }) => {
+const handler = async (msg, { conn, args }) => {
   const rawID = conn.user?.id || "";
   const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
   const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
@@ -29,6 +29,7 @@ export const handler = async (msg, { conn, args }) => {
 
   const metadata = await conn.groupMetadata(chatId);
   const participants = metadata.participants;
+  const memberCount = participants.length;
 
   const participant = participants.find(p => p.id.includes(senderNum));
   const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
@@ -48,6 +49,7 @@ export const handler = async (msg, { conn, args }) => {
   const extraMsg = args.join(" ");
   let finalMsg = "━〔 *📢 INVOCACIÓN 📢* 〕━➫\n";
   finalMsg += "٩(͡๏̯͡๏)۶ Por cortana 2.0 SubBot ٩(͡๏̯͡๏)۶\n";
+  finalMsg += `👥 Miembros en el grupo: ${memberCount}\n`;
   if (extraMsg.trim().length > 0) {
     finalMsg += `\n❑ Mensaje: ${extraMsg}\n\n`;
   } else {
