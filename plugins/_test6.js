@@ -10,17 +10,29 @@ const handler = async (m, {isOwner, isAdmin, conn, text, participants, args, com
   const mensaje = args.join(' ') || '¡Atención a todos!';
   const aviso = `*\`AVISO:\`* ${mensaje}`;
 
-  // Obtener nombre del invocador
-  const nombreInvocador = m.pushName || (await conn.getName(m.sender)) || `@${m.sender.split('@')[0]}`;
-
-  // Obtener nombre del bot
+  // Obtener ID del bot y del invocador
   const botNumber = conn.user.jid;
-  const nombreBot = (await conn.getName(botNumber)) || `@${botNumber.split('@')[0]}`;
+  const invocador = m.sender;
+
+  // Crear un set para evitar duplicados
+  const uniqueParticipants = new Map();
+
+  // Agregar participantes del grupo (sin duplicados)
+  for (const p of participants) {
+    uniqueParticipants.set(p.id, p);
+  }
+
+  // Asegurar que el bot y el invocador estén en el set
+  uniqueParticipants.set(botNumber, {id: botNumber});
+  uniqueParticipants.set(invocador, {id: invocador});
+
+  // Contar miembros únicos
+  const totalMiembros = uniqueParticipants.size;
 
   let teks = `╭━[ INVOCACIÓN MASIVA ]━⬣
 ┃🔹 PANTHEON BOT ⚡
-┃👤 Invocado por: @${m.sender.split('@')[0]}
-┃👥 Miembros del grupo: ${participants.length + 2}
+┃👤 Invocado por: @${invocador.split('@')[0]}
+┃👥 Miembros del grupo: ${totalMiembros}
 ╰━━━━━━━⋆★⋆━━━━━━━⬣
 
 ${aviso}
@@ -29,32 +41,17 @@ ${aviso}
 
 `;
 
-  // Agregar invocador
-  teks += `│➜ @${m.sender.split('@')[0]}\n`;
-
-  // Agregar bot
-  teks += `│➜ @${botNumber.split('@')[0]}\n`;
-
-  // Agregar los demás participantes (excluyendo invocador y bot para evitar duplicados)
-  for (const mem of participants) {
-    if (mem.id === m.sender) continue;
-    if (mem.id === botNumber) continue;
-    let nombre = (await conn.getName(mem.id)) || `@${mem.id.split('@')[0]}`;
-    teks += `│➜ @${mem.id.split('@')[0]}\n`;
+  // Construir texto con menciones
+  for (const [id] of uniqueParticipants) {
+    teks += `│➜ @${id.split('@')[0]}\n`;
   }
 
   teks += `╰─[ Pantheon Bot WhatsApp ⚡]─`;
 
-  // Crear array de menciones incluyendo invocador, bot y participantes
-  const mentions = [
-    m.sender,
-    botNumber,
-    ...participants.filter(p => p.id !== m.sender && p.id !== botNumber).map(p => p.id)
-  ];
-
+  // Enviar mensaje con todas las menciones
   await conn.sendMessage(m.chat, {
     text: teks,
-    mentions
+    mentions: Array.from(uniqueParticipants.keys())
   });
 };
 
