@@ -1,79 +1,23 @@
-import fs from "fs";
-import path from "path";
+const handler = async (m, {isOwner, isAdmin, conn, text, participants, args, command, usedPrefix}) => {
 
-const handler = async (msg, { conn, args }) => {
-  const rawID = conn.user?.id || "";
-  const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
-  const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
+  if (usedPrefix == 'a' || usedPrefix == 'A') return;
 
-  const prefixPath = path.resolve("prefixes.json");
-  let prefixes = {};
-  if (fs.existsSync(prefixPath)) {
-    prefixes = JSON.parse(fs.readFileSync(prefixPath, "utf-8"));
+  if (!(isAdmin || isOwner)) {
+    global.dfail('admin', m, conn);
+    throw false;
   }
-  const usedPrefix = prefixes[subbotID] || ".";
-
-  const chatId = msg.key.remoteJid;
-  const senderJid = msg.key.participant || msg.key.remoteJid;
-  const senderNum = senderJid.replace(/[^0-9]/g, "");
-  const senderTag = `@${senderNum}`;
-
-  if (!chatId.endsWith("@g.us")) {
-    return await conn.sendMessage(
-      chatId,
-      {
-        text: "⚠️ *Este comando solo se puede usar en grupos.*"
-      },
-      { quoted: msg }
-    );
+  const pesan = args.join` `;
+const oi = `*\`AVISO:\`* ${pesan}`;
+  let teks = `𝗣𝗔𝗡𝗧𝗛𝗘𝗢𝗡 𝗕𝗢𝗧 𝗟𝗢𝗦 𝗜𝗡𝗩𝗢𝗖𝗔 🫩\n*INTEGRANTES:* ${participants.length}\n\n ${oi}\n\nෆ *ETIQUETAS*\n`;
+  for (const mem of participants) {
+    teks += `യ ׄ🐸˚ @${mem.id.split('@')[0]}\n`;
   }
-
-  const metadata = await conn.groupMetadata(chatId);
-  const participants = metadata.participants;
-  const memberCount = participants.length;
-
-  const participant = participants.find(p => p.id.includes(senderNum));
-  const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
-  const isBot = botNumber === senderNum;
-
-  if (!isAdmin && !isBot) {
-    return await conn.sendMessage(
-      chatId,
-      {
-        text: "❌ Solo los administradores del grupo o el subbot pueden usar este comando."
-      },
-      { quoted: msg }
-    );
-  }
-
-  const mentionIds = participants.map(p => p.id);
-  const mentionList = participants.map(p => `│➜ @${p.id.split("@")[0]}`).join("\n");
-
-  const extraMsg = args.join(" ");
-  const aviso = extraMsg.trim().length > 0 ? `*AVISO:* ${extraMsg}` : "*AVISO:* *¡Atención a todos!*";
-
-  const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
-┃🔹 *PANTHEON BOT ⚡*
-┃👤 *Invocado por:* ${senderTag}
-┃👥 *Miembros del grupo: ${memberCount}*
-╰━━━━━━━⋆★⋆━━━━━━━⬣
-
-${aviso}
-
-📲 *Etiquetando a todos los miembros...*
-
-${mentionList}
-╰─[ *Pantheon Bot WhatsApp* ⚡ ]─`;
-
-  await conn.sendMessage(
-    chatId,
-    {
-      text: finalMsg,
-      mentions: mentionIds
-    },
-    { quoted: msg }
-  );
+  teks += `> *Pantheon Bot*`;
+  conn.sendMessage(m.chat, {text: teks, mentions: participants.map((a) => a.id)} );
 };
-
-handler.command = ["todostest"];
+handler.help = ['todos *<txt>*'];
+handler.tags = ['gc'];
+handler.command = /^(todostest)$/i;
+handler.admin = true;
+handler.group = true;
 export default handler;
