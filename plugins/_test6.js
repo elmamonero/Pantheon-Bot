@@ -50,20 +50,20 @@ const handler = async (msg, { conn, args }) => {
   const mentionList = participants.map(p => `│➜ @${p.id.split("@")[0]}`).join("\n");
 
   const extraMsg = args.join(" ");
-  const aviso = extraMsg.trim().length > 0 ? `*AVISO:* ${extraMsg}` : "*AVISO:* ¡Atención a todos!";
+  const aviso = extraMsg.trim().length > 0 ? `*AVISO:* ${extraMsg}` : "*AVISO:* *¡Atención a todos!*";
 
-  const finalMsg = `╭━[ INVOCACIÓN MASIVA ]━⬣
-┃🔹 PANTHEON BOT ⚡
-┃👤 Invocado por: ${senderTag}
-┃👥 Miembros del grupo: ${memberCount}
+  const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
+┃🔹 *PANTHEON BOT ⚡*
+┃👤 *Invocado por: ${senderTag}*
+┃👥 *Miembros del grupo: ${memberCount}*
 ╰━━━━━━━⋆★⋆━━━━━━━⬣
 
 ${aviso}
 
-📲 Etiquetando a todos los miembros...
+📲 *Etiquetando a todos los miembros...*
 
 ${mentionList}
-╰─[ Pantheon Bot WhatsApp ⚡ ]─`;
+╰─[ *Pantheon Bot WhatsApp* ⚡ ]─`;
 
   await conn.sendMessage(
     chatId,
