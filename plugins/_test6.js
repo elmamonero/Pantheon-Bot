@@ -1,63 +1,60 @@
-const handler = async (m, {isOwner, isAdmin, conn, text, participants, args, command, usedPrefix}) => {
+const fs = require("fs");
+const path = require("path");
 
-  if (!/^\.todostest$/i.test(m.text)) return;
+const handler = async (msg, { conn, args }) => {
+  const rawID = conn.user?.id || "";
+  const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
+  const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
 
-  if (!(isAdmin || isOwner)) {
-    global.dfail('admin', m, conn);
-    throw false;
+  const prefixPath = path.resolve("prefixes.json");
+  let prefixes = {};
+  if (fs.existsSync(prefixPath)) {
+    prefixes = JSON.parse(fs.readFileSync(prefixPath, "utf-8"));
+  }
+  const usedPrefix = prefixes[subbotID] || ".";
+
+  const chatId = msg.key.remoteJid;
+  const senderJid = msg.key.participant || msg.key.remoteJid;
+  const senderNum = senderJid.replace(/[^0-9]/g, "");
+
+  if (!chatId.endsWith("@g.us")) {
+    return await conn.sendMessage(chatId, {
+      text: "⚠️ *Este comando solo se puede usar en grupos.*"
+    }, { quoted: msg });
   }
 
-  const mensaje = args.join(' ') || '¡Atención a todos!';
-  const aviso = `*\`AVISO:\`* ${mensaje}`;
+  const metadata = await conn.groupMetadata(chatId);
+  const participants = metadata.participants;
 
-  // Obtener ID del bot y del invocador
-  const botNumber = conn.user.jid;
-  const invocador = m.sender;
+  // Verificación de permisos
+  const participant = participants.find(p => p.id.includes(senderNum));
+  const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
+  const isBot = botNumber === senderNum;
 
-  // Crear un set para evitar duplicados
-  const uniqueParticipants = new Map();
-
-  // Agregar participantes del grupo (sin duplicados)
-  for (const p of participants) {
-    uniqueParticipants.set(p.id, p);
+  if (!isAdmin && !isBot) {
+    return await conn.sendMessage(chatId, {
+      text: "❌ Solo los administradores del grupo o el subbot pueden usar este comando."
+    }, { quoted: msg });
   }
 
-  // Asegurar que el bot y el invocador estén en el set
-  uniqueParticipants.set(botNumber, {id: botNumber});
-  uniqueParticipants.set(invocador, {id: invocador});
-
-  // Contar miembros únicos
-  const totalMiembros = uniqueParticipants.size;
-
-  let teks = `╭━[ INVOCACIÓN MASIVA ]━⬣
-┃🔹 PANTHEON BOT ⚡
-┃👤 Invocado por: @${invocador.split('@')[0]}
-┃👥 Miembros del grupo: ${totalMiembros}
-╰━━━━━━━⋆★⋆━━━━━━━⬣
-
-${aviso}
-
-📲 Etiquetando a todos los miembros...
-
-`;
-
-  // Construir texto con menciones
-  for (const [id] of uniqueParticipants) {
-    teks += `│➜ @${id.split('@')[0]}\n`;
+  const mentionList = participants.map(p => `➥ @${p.id.split("@")[0]}`).join("\n");
+  const extraMsg = args.join(" ");
+  let finalMsg = "━〔 *📢 INVOCACIÓN 📢* 〕━➫\n";
+  finalMsg += "٩(͡๏̯͡๏)۶ Por cortana 2.0 SubBot ٩(͡๏̯͡๏)۶\n";
+  if (extraMsg.trim().length > 0) {
+    finalMsg += `\n❑ Mensaje: ${extraMsg}\n\n`;
+  } else {
+    finalMsg += "\n";
   }
+  finalMsg += mentionList;
 
-  teks += `╰─[ Pantheon Bot WhatsApp ⚡]─`;
+  const mentionIds = participants.map(p => p.id);
 
-  // Enviar mensaje con todas las menciones
-  await conn.sendMessage(m.chat, {
-    text: teks,
-    mentions: Array.from(uniqueParticipants.keys())
-  });
+  await conn.sendMessage(chatId, {
+    text: finalMsg,
+    mentions: mentionIds
+  }, { quoted: msg });
 };
 
-handler.help = ['todostest *<txt>*'];
-handler.tags = ['gc'];
-handler.command = /^todostest$/i;
-handler.admin = true;
-handler.group = true;
-export default handler;
+handler.command = ["tagall", "invocar", "todos"];
+module.exports = handler;
