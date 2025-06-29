@@ -36,7 +36,7 @@ else return m.reply(`*[ ⚠️ ] El URL es incorrecta*`)
 console.error(e)
 if (!stiker) stiker = e
 } finally {
-if (stiker) conn.sendFile(m.chat, stiker, 'sticker.webp', '',m, true, { contextInfo: { 'forwardingScore': 200, 'isForwarded': false, externalAdReply:{ showAdAttribution: false, title: 'Տһ͟ᥲ֟፝ძ᥆ϣ  Ϟ  S𝗍іᥴkᥱrㅤ☕', body: `Shadow Bot MD`, mediaType: 2, sourceUrl: grupo, thumbnail: icons}}}, { quoted: m })
+if (stiker) conn.sendFile(m.chat, stiker, 'sticker.webp', '',m, true, { contextInfo: { 'forwardingScore': 200, 'isForwarded': false, externalAdReply:{ showAdAttribution: false, title: 'Pantheon Bot', body: `Pantheon Bot`, mediaType: 2, sourceUrl: grupo, thumbnail: icons}}}, { quoted: m })
 
 else return conn.reply(m.chat, `*[ ℹ️ ] La conversión ha fallado, responde con un video, imagen o GIF para que se convierta en sticker.*`, m, rcanal)
 
