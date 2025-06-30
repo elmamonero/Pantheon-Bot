@@ -210,4 +210,4 @@ export default async (msg, { conn, text }) => {
   }
 };
 
-export const command = ["testplay1"];
+handler.command = /^(testplay1)$/i;
