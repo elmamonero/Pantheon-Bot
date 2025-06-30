@@ -77,7 +77,7 @@ async function handleDownload(conn, job, choice, quotedMsg) {
   }
 }
 
-export default async (msg, { conn, text }) => {
+const handler = async (msg, { conn, text }) => {
   const subID = (conn.user.id || "").split(":")[0] + "@s.whatsapp.net";
   const pref = (() => {
     try {
@@ -211,3 +211,5 @@ export default async (msg, { conn, text }) => {
 };
 
 handler.command = /^(testplay1)$/i;
+
+export default handler;
