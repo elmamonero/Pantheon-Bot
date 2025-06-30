@@ -1,11 +1,17 @@
-const axios = require("axios");
-const yts = require("yt-search");
-const fs = require("fs");
-const path = require("path");
-const ffmpeg = require("fluent-ffmpeg");
-const { promisify } = require("util");
-const { pipeline } = require("stream");
+import axios from "axios";
+import yts from "yt-search";
+import fs from "fs";
+import path from "path";
+import ffmpeg from "fluent-ffmpeg";
+import { promisify } from "util";
+import { pipeline } from "stream";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const streamPipe = promisify(pipeline);
+
 
 // Almacena tareas pendientes por previewMessageId
 const pending = {};
