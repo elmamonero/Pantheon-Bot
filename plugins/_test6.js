@@ -224,4 +224,4 @@ async function downloadVideo(conn, job, asDocument, quoted) {
   fs.unlinkSync(file);
 }
 
-module.exports.command = ["testplay1"];
+export const command = ["testplay1"];
