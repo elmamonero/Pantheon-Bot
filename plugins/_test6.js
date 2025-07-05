@@ -7,6 +7,7 @@ let handler = async (m, { conn, args }) => {
   let stiker = false
   let q = m.quoted || m
   let mime = (q.msg || q).mimetype || q.mediaType || ''
+  const xsticker = '🧩' // Puedes cambiar este emoji por el que prefieras
   const mensajeError = `*${xsticker} Responde a una imagen o video para convertir en stiker.*`
 
   try {
