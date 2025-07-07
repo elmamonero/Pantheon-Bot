@@ -43,7 +43,7 @@ export async function handler(chatUpdate) {
                 if (!user.premium) 
                     user.premiumTime = 0
                 if (!('registered' in user))
-                    user.registered = false
+                    user.registered = true
                 if (!user.registered) {
                     if (!('name' in user))
                         user.name = m.name
@@ -76,7 +76,7 @@ export async function handler(chatUpdate) {
                 global.db.data.users[m.sender] = {
                     exp: 0,
                     diamantes: 15,
-                    registered: false,
+                    registered: true,
                     name: m.name,
                     description: '',
                     age: -1,
@@ -412,7 +412,7 @@ global.db.data.users[m.sender].spam = new Date * 1
                     fail('private', m, this)
                     continue
 }
-              if (plugin.register == true && _user.registered == false) { 
+              if (plugin.register == true && _user.registered == true) { 
               fail('unreg', m, this)
             continue
            }
