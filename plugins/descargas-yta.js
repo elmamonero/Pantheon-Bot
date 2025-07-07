@@ -1,6 +1,10 @@
 import yts from 'yt-search'
 import fetch from 'node-fetch'
 
+const xdownload = '🔊 Descargar' // Puedes personalizar este texto
+const dev = 'Bot creado por TuNombre' // Personaliza el autor
+const fkontak = {} // Si tienes un mensaje de contacto, ponlo aquí o déjalo vacío
+
 const handler = async (m, { conn, command, text, usedPrefix }) => {
   if (!text) {
     return m.reply(`*${xdownload} Por favor, ingresa un título de YouTube.*\n> *\`Ejemplo:\`* ${usedPrefix + command} Anna Carina & La única tropical Prohibido`)
