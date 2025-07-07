@@ -3,6 +3,7 @@ import fetch from 'node-fetch'
 
 const xdownload = '🔊 Descargar'
 const dev = 'Bot creado por TuNombre'
+const LOLHUMAN_API_KEY = 'TU_API_KEY_AQUI' // Consigue tu key en https://api.lolhuman.xyz/
 
 const handler = async (m, { conn, command, text, usedPrefix }) => {
   console.log('[INFO] Comando recibido:', command, 'Texto:', text)
@@ -24,7 +25,7 @@ const handler = async (m, { conn, command, text, usedPrefix }) => {
     }
 
     const vid = search.videos[0]
-    const { title, thumbnail, timestamp, url, author } = vid
+    const { title, thumbnail, url, author, timestamp } = vid
     console.log('[INFO] Video seleccionado:', title, url)
 
     const captext = `\`\`\`◜YTA - Download◞\`\`\`
@@ -42,48 +43,24 @@ const handler = async (m, { conn, command, text, usedPrefix }) => {
     }, { quoted: m })
     console.log('[INFO] Imagen enviada')
 
-    const headers = {
-      "accept": "*/*",
-      "accept-language": "es-AR,id;q=0.9,en-US;q=0.8,en;q=0.7",
-      "Referer": "https://id.ytmp3.mobi/",
-      "Referrer-Policy": "strict-origin-when-cross-origin"
-    }
+    // Descargar audio usando la API de lolhuman
+    const apiUrl = `https://api.lolhuman.xyz/api/ytmusic?apikey=${LOLHUMAN_API_KEY}&url=${url}`
+    console.log('[INFO] Solicitando a lolhuman:', apiUrl)
+    const res = await fetch(apiUrl)
+    const data = await res.json()
+    console.log('[INFO] Respuesta lolhuman:', data)
 
-    console.log('[INFO] Solicitando init a d.ymcdn.org')
-    const initial = await fetch(`https://d.ymcdn.org/api/v1/init?p=y&23=1llum1n471&_=${Math.random()}`, { headers })
-    const init = await initial.json()
-    console.log('[INFO] Respuesta init:', init)
-
-    const id = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/))([^&?/]+)/)?.[1]
-    console.log('[INFO] ID del video:', id)
-    if (!id) throw new Error('ID de video no encontrado.')
-
-    const convertURL = `${init.convertURL}&v=${id}&f=mp4&_=${Math.random()}`
-    console.log('[INFO] Solicitando conversión:', convertURL)
-    const converts = await fetch(convertURL, { headers })
-    const convert = await converts.json()
-    console.log('[INFO] Respuesta conversión:', convert)
-
-    let info = {}
-    for (let i = 0; i < 3; i++) {
-      console.log(`[INFO] Consultando progreso (${i + 1}/3):`, convert.progressURL)
-      const progress = await fetch(convert.progressURL, { headers })
-      info = await progress.json()
-      console.log('[INFO] Progreso:', info)
-      if (info.progress === 3) break
-    }
-
-    if (!convert.downloadURL) {
+    if (!data.result || !data.result.link) {
       console.log('[ERROR] No se pudo obtener el enlace de descarga')
-      throw new Error('No se pudo obtener el enlace de descarga.')
+      await m.react('✖️')
+      return m.reply('*⛔ No se pudo obtener el enlace de descarga.*')
     }
 
-    console.log('[INFO] Enviando audio:', convert.downloadURL)
     await conn.sendMessage(m.chat, {
-      audio: { url: convert.downloadURL },
-      mimetype: 'audio/mp4'
+      audio: { url: data.result.link },
+      mimetype: 'audio/mp3',
+      fileName: `${title}.mp3`
     }, { quoted: m })
-
     await m.react('✅')
     console.log('[SUCCESS] Audio enviado correctamente')
 
