@@ -1,9 +1,13 @@
-/* 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗦𝗵𝗮𝗱𝗼𝘄'𝘀 𝗖𝗹𝘂𝗯 🌺᭄
-𝖢𝗋𝖾𝖺𝖽𝗈 𝗉𝗈𝗋 𝖣𝖾𝗏.𝖢𝗋𝗂𝗌𝗌 🇦🇱
-https://whatsapp.com/channel/0029VauTE8AHltY1muYir31n*/
+/*
+  𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗦𝗵𝗮𝗱𝗼𝘄'𝘀 𝗖𝗹𝘂𝗯 🌺᭄
+  𝖢𝗋𝖾𝖺𝖽𝗈 𝗉𝗈𝗋 𝖣𝖾𝗏.𝖢𝗋𝗂𝗌𝗌 🇦🇱
+  https://whatsapp.com/channel/0029VauTE8AHltY1muYir31n
+*/
 
 import axios from 'axios';
 import crypto from 'crypto';
+
+const xdownload = '🎵'; // ✅ Variable definida para evitar ReferenceError
 
 const savetube = {
   api: {
