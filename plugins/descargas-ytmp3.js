@@ -1,3 +1,6 @@
+/* 𝗣𝗼𝘄𝗲𝗿𝗲𝗱 𝗯𝘆 𝗦𝗵𝗮𝗱𝗼𝘄'𝘀 𝗖𝗹𝘂𝗯 🌺᭄
+𝖢𝗋𝖾𝖺𝖽𝗈 𝗉𝗈𝗋 𝖣𝖾𝗏.𝖢𝗋𝗂𝗌𝗌 🇦🇱
+https://whatsapp.com/channel/0029VauTE8AHltY1muYir31n*/
 
 import axios from 'axios';
 import crypto from 'crypto';
@@ -130,7 +133,7 @@ const savetube = {
 };
 
 const handler = async (m, { conn, args }) => {
-  if (!args[0]) return m.reply(`*❗ Ingresa una URL de un video o audio de YouTube*`);
+  if (!args[0]) return m.reply(`*${xdownload} Por favor, ingresa una URL de un video o audio de YouTube*`);
 
   const url = args[0];
   if (!savetube.isUrl(url)) return m.reply("*⚠️ Ingresa un link válido de YouTube.*");
@@ -141,7 +144,7 @@ const handler = async (m, { conn, args }) => {
 
     if (!res.status) {
       await m.react('✖️');
-      return m.reply(`\`\`\`❌ Error:\`\`\` ${res.error}`);
+      return m.reply(`*✖️ Error:* ${res.error}`);
     }
 
     const { title, download } = res.result;
@@ -154,12 +157,12 @@ const handler = async (m, { conn, args }) => {
     await m.react('✅');
   } catch (e) {
     await m.react('✖️');
-    m.reply(`*⚠️ La descarga ha fallado, es posible que el archivo sea muy pesado.*`);
+    m.reply(`*⚠️ La descarga ha fallado, posible errores en la API o la descarga es muy pesada.*`);
   }
 };
 
-handler.help = ['ytmp3 *<url>*'];
+handler.help = ['ytmp3'];
 handler.command = ['ytmp3'];
-handler.tags = ['descargas'];
+handler.tags = ['download'];
 
 export default handler;
