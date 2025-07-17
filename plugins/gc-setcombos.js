@@ -53,7 +53,7 @@ const handler = async (m, { conn, text, chat }) => {
 
 handler.help = ['combos', 'setcombos <combo>', 'resetcombos'];  
 handler.tags = ['group'];  
-handler.command = ['combos', 'setcombos', 'resetcombos', 'combo'];  
+handler.command = ['combos', 'setcombos', 'resetcombos', 'combo', 'setcombo'];  
 handler.admin = true;  
 
 export default handler;
