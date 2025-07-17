@@ -58,12 +58,12 @@ ${readMore}
 ⠞🪻੭‎ ${usedPrefix}manual
 
 ↷✦; \`SISTEMA DE VENTAS\` ❞ 🛍️ 
-⠞🛍️ ${usedPrefix}setpago *texto*
-⠞🛍️‎ ${usedPrefix}pago
-⠞🛍️‎ ${usedPrefix}setstock *texto*
-⠞🛍️‎ ${usedPrefix}stock
-⠞🛍️‎ ${usedPrefix}setcombos *texto*
-⠞🛍️ ${usedPrefix}combos
+⠞🛍️੭‎ ${usedPrefix}setpago *texto*
+⠞🛍️੭‎‎ ${usedPrefix}pago
+⠞🛍️੭‎‎ ${usedPrefix}setstock *texto*
+⠞🛍️੭‎‎ ${usedPrefix}stock
+⠞🛍️੭‎‎ ${usedPrefix}setcombos *texto*
+⠞🛍️੭‎ ${usedPrefix}combos
 
 ↷✦; \`DOWNLOAD\` ❞ 🪷︵᷼ 
 ⠞🪷੭‎ ${usedPrefix}play *texto*
