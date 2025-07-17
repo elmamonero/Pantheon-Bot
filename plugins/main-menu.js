@@ -57,13 +57,13 @@ ${readMore}
 ⠞🪻੭‎ ${usedPrefix}off *opción*
 ⠞🪻੭‎ ${usedPrefix}manual
 
-↷✦; \`SISTEMA DE VENTAS\` ❞ 🪷︵᷼ 
-⠞🪷੭‎ ${usedPrefix}setpago *texto*
-⠞🪷੭‎ ${usedPrefix}pago
-⠞🪷੭‎ ${usedPrefix}setstock *texto*
-⠞🪷੭‎ ${usedPrefix}stock
-⠞🪷੭‎ ${usedPrefix}setcombos *texto*
-⠞🪷੭‎ ${usedPrefix}combos
+↷✦; \`SISTEMA DE VENTAS\` ❞ 🛍️ 
+⠞🛍️ ${usedPrefix}setpago *texto*
+⠞🛍️‎ ${usedPrefix}pago
+⠞🛍️‎ ${usedPrefix}setstock *texto*
+⠞🛍️‎ ${usedPrefix}stock
+⠞🛍️‎ ${usedPrefix}setcombos *texto*
+⠞🛍️ ${usedPrefix}combos
 
 ↷✦; \`DOWNLOAD\` ❞ 🪷︵᷼ 
 ⠞🪷੭‎ ${usedPrefix}play *texto*
