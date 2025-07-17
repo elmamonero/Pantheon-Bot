@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-// Handler para el comando de pago  
+// Handler para el comando de stock  
 const handler = async (m, { conn, text, chat }) => {  
   const datas = global;  
   const idioma = datas.db.data.users[m.sender].language || global.defaultLenguaje;  
@@ -8,52 +8,52 @@ const handler = async (m, { conn, text, chat }) => {
   // Obtener el ID del grupo o chat actual  
   const chatId = m.chat;  
 
-  // Inicializar pago para este grupo si no existe  
-  if (!global.db.data.pago) {  
-    global.db.data.pago = {};  
+  // Inicializar stock para este grupo si no existe  
+  if (!global.db.data.stock) {  
+    global.db.data.stock = {};  
   }  
-  if (!global.db.data.pago[chatId]) {  
-    global.db.data.pago[chatId] = {};  
+  if (!global.db.data.stock[chatId]) {  
+    global.db.data.stock[chatId] = {};  
   }  
 
-  const groupPago = global.db.data.pago[chatId]; // Pago específico del grupo  
+  const groupStock = global.db.data.stock[chatId]; // Stock específico del grupo  
 
-  // Comando para consultar el pago  
-  if (m.text.startsWith('.pago')) {  
-    if (Object.keys(groupPago).length === 0) {  
+  // Comando para consultar el stock  
+  if (m.text.startsWith('.stock')) {  
+    if (Object.keys(groupStock).length === 0) {  
       m.reply("🧑‍💼✨ **𝐈𝐧𝐯𝐞𝐧𝐭𝐚𝐫𝐢𝐨 𝐯𝐚𝐜𝐢𝐨** ✨"); // Mensaje si no hay productos  
       return;  
     }  
 
-    let PagoMessage = '';  
-    for (const product in groupPago) {  
-      PagoMessage += `${product}\n`; // Agregar solo el nombre del producto  
+    let stockMessage = '';  
+    for (const product in groupStock) {  
+      stockMessage += `${product}\n`; // Agregar solo el nombre del producto  
     }  
 
-    m.reply(PagoMessage.trim()); // Enviar la lista de pagos sin otro texto adicional  
+    m.reply(stockMessage.trim()); // Enviar la lista de stocks sin otro texto adicional  
     return;  
   }  
 
-  // Comando para establecer el pago  
-  if (m.text.startsWith('.setpago')) {  
+  // Comando para establecer el stock  
+  if (m.text.startsWith('.setstock')) {  
     if (!text) {  
-      m.reply("𝙀𝙨𝙘𝙧𝙞𝙗𝙚 𝙩𝙪 𝙢𝙚𝙩𝙤𝙙𝙤 𝙙𝙚 𝙥𝙖𝙜𝙤🏛️."); // Mensaje de uso correcto  
+      m.reply("𝙀𝙨𝙘𝙧𝙞𝙗𝙚 𝙩𝙪 𝙨𝙩𝙤𝙘𝙠📦."); // Mensaje de uso correcto  
       return;  
     }  
 
     const product = text; // Usar todo el texto como producto  
 
-    // Eliminar pagos anteriores y agregar el nuevo producto al pago
-    global.db.data.pago[chatId] = {}; // Reiniciar el pago específico del grupo  
-    global.db.data.pago[chatId][product] = true; // Almacenar el producto como existente  
+    // Eliminar stocks anteriores y agregar el nuevo producto al stock
+    global.db.data.stock[chatId] = {}; // Reiniciar el stock específico del grupo  
+    global.db.data.stock[chatId][product] = true; // Almacenar el producto como existente  
     fs.writeFileSync('./database.json', JSON.stringify(global.db)); // Guardar los cambios en la base de datos
-    m.reply(`𝙈𝙚𝙩𝙤𝙙𝙤 𝙙𝙚 𝙋𝙖𝙜𝙤 𝘼𝙘𝙩𝙪𝙖𝙡𝙞𝙯𝙖𝙙𝙤🏛️`);  
+    m.reply(`𝙎𝙩𝙤𝙘𝙠 𝘼𝙘𝙩𝙪𝙖𝙡𝙞𝙯𝙖𝙙𝙤📦`);  
   }  
 };  
 
-handler.help = ['pago', 'setpago <producto>', 'resetpago'];  
+handler.help = ['stock', 'setstock <producto>', 'resetstock'];  
 handler.tags = ['group'];  
-handler.command = ['pago', 'setpago'];  
+handler.command = ['stock', 'setstock', 'resetstock'];  
 handler.admin = true;  
 
 export default handler;
