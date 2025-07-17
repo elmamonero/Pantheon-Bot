@@ -53,7 +53,7 @@ const handler = async (m, { conn, text, chat }) => {
 
 handler.help = ['stock', 'setstock <producto>', 'resetstock'];  
 handler.tags = ['group'];  
-handler.command = ['stock', 'setstock', 'resetstock'];  
+handler.command = ['stock', 'setstock', 'resetstock', 'stocks'];  
 handler.admin = true;  
 
 export default handler;
