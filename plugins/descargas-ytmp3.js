@@ -1,82 +1,103 @@
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
-const ffmpeg = require('fluent-ffmpeg');
-const { promisify } = require('util');
-const { pipeline } = require('stream');
-const streamPipeline = promisify(pipeline);
+import axios from 'axios';
 
-const handler = async (msg, { conn, text, usedPrefix }) => {
-  const isYoutubeUrl = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(text);
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  if (!text || !isYoutubeUrl) {
-    return await conn.sendMessage(msg.key.remoteJid, {
-      text: `✳️ Usa el comando correctamente:\n\n📌 Ejemplo: *${usedPrefix}ytmp3* https://music.youtube.com/watch?v=abc123`
-    }, { quoted: msg });
+const fetchDownloadUrl = async (videoUrl) => {
+  const apis = [
+    'https://api.vreden.my.id/api/ytmp3?url=',
+    'https://mahiru-shiina.vercel.app/download/ytmp3?url=',
+    'https://api.siputzx.my.id/api/d/ytmp3?url='
+  ];
+
+  for (let api of apis) {
+    try {
+      const fullUrl = `${api}${encodeURIComponent(videoUrl)}`;
+      const { data } = await axios.get(fullUrl, { timeout: 10000 });
+
+      let result = data?.result || data?.data;
+
+      // Adaptación para la estructura de Vreden
+      const audioUrl = result?.download?.url || result?.dl_url || result?.download || result?.dl;
+      const title = result?.metadata?.title || result?.title || "audio";
+
+      if (audioUrl) {
+        return {
+          url: audioUrl.trim(),
+          title
+        };
+      }
+    } catch (error) {
+      console.error(`Error con API: ${api}`, error.message);
+      await wait(5000);
+    }
   }
 
-  await conn.sendMessage(msg.key.remoteJid, {
-    react: { text: '⏳', key: msg.key }
-  });
+  return null;
+};
 
+const sendAudioWithRetry = async (conn, chat, audioUrl, videoTitle, maxRetries = 2) => {
+  let attempt = 0;
+  let thumbnailBuffer;
   try {
-    const apiURL = `https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(text)}&type=audio&quality=128kbps&apikey=russellxz`;
-    const res = await axios.get(apiURL);
-    const json = res.data;
+    const response = await axios.get('https://files.catbox.moe/l81ahk.jpg', { responseType: 'arraybuffer' });
+    thumbnailBuffer = Buffer.from(response.data, 'binary');
+  } catch (error) {
+    console.error("Error al obtener thumbnail:", error.message);
+  }
 
-    if (!json.status || !json.data?.url) {
-      throw new Error("No se pudo obtener el audio");
+  while (attempt < maxRetries) {
+    try {
+      await conn.sendMessage(
+        chat,
+        {
+          audio: { url: audioUrl },
+          mimetype: 'audio/mpeg',
+          contextInfo: {
+            externalAdReply: {
+              title: videoTitle,
+              body: "Barboza hijueputa",
+              previewType: 'PHOTO',
+              thumbnail: thumbnailBuffer,
+              mediaType: 1,
+              renderLargerThumbnail: false,
+              showAdAttribution: true,
+              sourceUrl: 'https://Ella.Nunca.Te-Amo.Pe'
+            }
+          }
+        }
+      );
+      return;
+    } catch (error) {
+      console.error(`Error al enviar audio, intento ${attempt + 1}:`, error.message);
+      if (attempt < maxRetries - 1) await wait(12000);
     }
-
-    const { data, title, fduration, thumbnail } = json;
-
-    await conn.sendMessage(msg.key.remoteJid, {
-      image: { url: thumbnail },
-      caption: `🎧 *Título:* ${title}\n🕒 *Duración:* ${fduration}\n📥 *Tamaño:* ${data.size}\n\n⏳ Descargando audio...`
-    }, { quoted: msg });
-
-    const tmpDir = path.join(__dirname, '../tmp');
-    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
-
-    const rawPath = path.join(tmpDir, `${Date.now()}_raw.m4a`);
-    const finalPath = path.join(tmpDir, `${Date.now()}_final.mp3`);
-
-    const audioRes = await axios.get(data.url, { responseType: 'stream' });
-    await streamPipeline(audioRes.data, fs.createWriteStream(rawPath));
-
-    await new Promise((resolve, reject) => {
-      ffmpeg(rawPath)
-        .audioCodec('libmp3lame')
-        .audioBitrate('128k')
-        .save(finalPath)
-        .on('end', resolve)
-        .on('error', reject);
-    });
-
-    await conn.sendMessage(msg.key.remoteJid, {
-      audio: fs.readFileSync(finalPath),
-      mimetype: 'audio/mpeg',
-      fileName: data.filename || `${title}.mp3`
-    }, { quoted: msg });
-
-    fs.unlinkSync(rawPath);
-    fs.unlinkSync(finalPath);
-
-    await conn.sendMessage(msg.key.remoteJid, {
-      react: { text: '✅', key: msg.key }
-    });
-
-  } catch (err) {
-    console.error(err);
-    await conn.sendMessage(msg.key.remoteJid, {
-      text: `❌ *Error:* ${err.message}`
-    }, { quoted: msg });
-
-    await conn.sendMessage(msg.key.remoteJid, {
-      react: { text: '❌', key: msg.key }
-    });
+    attempt++;
   }
 };
 
-handler.command = ['ytmp3'];
-module.exports = handler;
+let handler = async (m, { conn, text }) => {
+  if (!text?.trim() || (!text.includes('youtube.com') && !text.includes('youtu.be'))) {
+    await conn.reply(m.chat, `❗ *Debes Ingresar Un Enlace De YouTube Válido.*`, m);
+    return;
+  }
+
+  const reactionMessage = await conn.reply(m.chat, `🔍 *Procesando El Enlace 😉...*`, m);
+  await conn.sendMessage(m.chat, { react: { text: '🎶', key: reactionMessage.key } });
+
+  try {
+    const downloadData = await fetchDownloadUrl(text);
+    if (!downloadData || !downloadData.url) throw new Error("No Se Pudo Obtener La Descarga.");
+
+    await conn.sendMessage(m.chat, { react: { text: '🟢', key: reactionMessage.key } });
+    await sendAudioWithRetry(conn, m.chat, downloadData.url, downloadData.title);
+  } catch (error) {
+    console.error("❌ Error:", error);
+    await conn.reply(m.chat, `⚠️ *Error:* ${error.message || "Desconocido"}`, m);
+  }
+};
+
+handler.help = ['ytmp3 <url de youtube>'];
+handler.tags = ['descargas'];
+handler.command = /^ytmp3$/i;
+
+export default handler;
