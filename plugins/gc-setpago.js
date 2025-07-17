@@ -53,7 +53,7 @@ const handler = async (m, { conn, text, chat }) => {
 
 handler.help = ['pago', 'setpago <producto>', 'resetpago'];  
 handler.tags = ['group'];  
-handler.command = ['pago', 'setpago'];  
+handler.command = ['pago', 'setpago', 'pagos'];  
 handler.admin = true;  
 
 export default handler;
