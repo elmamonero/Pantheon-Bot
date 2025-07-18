@@ -1,32 +1,31 @@
 import axios from 'axios';
 
-// Handler sencillo usando la API de Vreden
 const handler = async (m, { conn, args }) => {
-  if (!args[0]) return m.reply(`Por favor, ingresa una URL de un video o audio de YouTube`);
+  if (!args[0]) return m.reply('Por favor, ingresa una URL de un video o audio de YouTube');
   const url = args[0];
 
-  // Validación básica de URL de YouTube
-  if (!/(youtube\.com|youtu\.be)/.test(url)) 
+  if (!/(youtube\.com|youtu\.be)/.test(url))
     return m.reply("⚠️ Ingresa un link válido de YouTube.");
 
   try {
     await m.react('🕒');
-    // Consultar la API de Vreden
     const { data } = await axios.get(`https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(url)}`);
 
-    // Verificar si la API respondió correctamente
-    if (!data.status) {
+    if (!data.result?.download?.status) {
       await m.react('✖️');
-      return m.reply("*✖️ Error:* " + (data.message || "No se pudo obtener el mp3"));
+      return m.reply("*✖️ Error:* No se pudo obtener el mp3");
     }
 
-    // data.result podría diferir, asegúrate con la documentación o prueba con un video real
-    const { title, url: audioUrl, thumbnail } = data.result;
+    // Se extraen los datos según la estructura
+    const title = data.result.metadata.title;
+    const audioUrl = data.result.download.url;
+    const fileName = data.result.download.filename || `${title}.mp3`;
+    const thumbnail = data.result.metadata.thumbnail || data.result.metadata.image;
 
     await conn.sendMessage(m.chat, {
       audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
-      fileName: `${title}.mp3`,
+      fileName,
       contextInfo: {
         externalAdReply: {
           title,
@@ -39,6 +38,7 @@ const handler = async (m, { conn, args }) => {
 
     await m.react('✅');
   } catch (e) {
+    console.error('Error al descargar MP3:', e, e.response?.data);
     await m.react('✖️');
     m.reply("⚠️ La descarga ha fallado, posible error en la API o el video es muy pesado.");
   }
