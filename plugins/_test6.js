@@ -1,9 +1,10 @@
 import fetch from 'node-fetch';
 
 let handler = async (m, { conn, args, usedPrefix, command }) => {
-    const apiKey = '9f51309abe04626c88401dc9';  
+    if (command === 'cambiar' || command === 'convertir' || command === 'moneda' || command === 'monedas') {
+        // Handler para conversión de divisas
+        const apiKey = '9f51309abe04626c88401dc9';
 
-    if (command === 'cambiar' || command === 'convertir') {
         try {
             if (args.length < 4 || args[2].toLowerCase() !== 'a') {
                 m.reply(`⚠️ Uso incorrecto. Por favor, usa el formato:\n\`${usedPrefix}${command} [cantidad] [moneda_origen] a [moneda_destino]\`\nEjemplo: \`${usedPrefix}cambiar 100 USD a EUR\``);
@@ -28,7 +29,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                 if (data['error-type']) {
                     errorMessage += ` Error de la API: ${data['error-type'].replace(/_/g, ' ')}`;
                     if (data['error-type'] === 'unsupported-code') {
-                         errorMessage += `\nVerifica que las monedas (${monedaOrigen} o ${monedaDestino}) sean códigos ISO válidos.`;
+                        errorMessage += `\nVerifica que las monedas (${monedaOrigen} o ${monedaDestino}) sean códigos ISO válidos.`;
                     }
                 }
                 m.reply(errorMessage);
@@ -52,11 +53,58 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             console.error(error);
             m.reply('❌ Ocurrió un error al procesar tu solicitud.');
         }
+    } else if (command === 'divisas') {
+        // Handler para mostrar lista de divisas
+        const message = `
+💱 *DIVISAS DE LATAM*
+*┈┈┈┈┈┈┈┈┈┈┈┈┈┈*
+
+PAÍS ┋ MONEDA
+🇭🇳 ┋ HNL
+🇺🇸 ┋ USD
+🇲🇽 ┋ MXN
+🇨🇴 ┋ COP
+🇨🇱 ┋ CLP
+🇦🇷 ┋ ARS
+🇵🇪 ┋ PEN
+🇬🇹 ┋ GTQ
+🇳🇮 ┋ NIO
+🇨🇷 ┋ CRC
+🇵🇦 ┋ PAB
+🇵🇾 ┋ PYG
+🇺🇾 ┋ UYU
+🇩🇴 ┋ DOP
+🇧🇴 ┋ BOB
+🇧🇷 ┋ BRL
+🇻🇪 ┋ VES
+
+🌍 *DIVISAS DE EUROPA Y OTROS*
+*┈┈┈┈┈┈┈┈┈┈┈*
+
+🇪🇺 ┋ EUR (Euro)
+🇬🇧 ┋ GBP (Libra esterlina)
+🇨🇭 ┋ CHF (Franco suizo)
+🇷🇺 ┋ RUB (Rublo ruso)
+🇳🇴 ┋ NOK (Corona noruega)
+🇸🇪 ┋ SEK (Corona sueca)
+🇩🇰 ┋ DKK (Corona danesa)
+🇵🇱 ┋ PLN (Zloty polaco)
+🇹🇷 ┋ TRY (Lira turca)
+🇯🇵 ┋ JPY (Yen japonés)
+🇨🇦 ┋ CAD (Dólar canadiense)
+🇦🇺 ┋ AUD (Dólar australiano)
+🇳🇿 ┋ NZD (Dólar neozelandés)
+`;
+        await conn.reply(m.chat, message, m);
     }
 };
 
-handler.help = ['cambiar <cantidad> <moneda_origen> a <moneda_destino>', 'convertir <cantidad> <moneda_origen> a <moneda_destino>'];
+handler.help = [
+    'cambiar <cantidad> <moneda_origen> a <moneda_destino>',
+    'convertir <cantidad> <moneda_origen> a <moneda_destino>',
+    'divisas'
+];
 handler.tags = ['herramientas'];
-handler.command = ['cambiar', 'convertir'];
+handler.command = ['cambiar', 'convertir', 'divisas', 'moneda', 'monedas' ];
 
 export default handler;
