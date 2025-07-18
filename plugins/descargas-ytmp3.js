@@ -53,10 +53,17 @@ const sendAudioWithRetry = async (conn, chat, audioUrl, videoTitle, maxRetries =
 
   let audioBuffer;
 
-  // Descargar el audio (buffer)
   try {
     console.log(`[sendAudioWithRetry] Descargando el archivo de audio desde ${audioUrl} ...`);
-    const audioResp = await axios.get(audioUrl, {responseType: 'arraybuffer', timeout: 25000});
+    // Intenta simular un navegador para evitar bloqueos por parte del CDN
+    const audioResp = await axios.get(audioUrl, {
+      responseType: 'arraybuffer',
+      timeout: 25000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': 'https://youtube.com/'
+      }
+    });
     audioBuffer = Buffer.from(audioResp.data, 'binary');
     console.log(`[sendAudioWithRetry] Audio descargado exitosamente (${audioBuffer.length} bytes)`);
   } catch (err) {
@@ -64,7 +71,6 @@ const sendAudioWithRetry = async (conn, chat, audioUrl, videoTitle, maxRetries =
     throw new Error('No se pudo descargar el audio para enviarlo.');
   }
 
-  // Reintentar el envío
   while (attempt < maxRetries) {
     try {
       console.log(`[sendAudioWithRetry] Enviando audio, intento #${attempt + 1}...`);
