@@ -39,7 +39,7 @@ ${readMore}
 ⠞🌷੭‎ ${usedPrefix}menuff
 
 ↷✦; \`INFO BOT\` ❞ 🍄︵᷼  
-⠞🍄੭‎ ${usedPrefix}totaaalf
+⠞🍄੭‎ ${usedPrefix}totalf
 ⠞🍄੭‎ ${usedPrefix}grupos
 ⠞🍄੭‎ ${usedPrefix}sugerir
 ⠞🍄੭‎ ${usedPrefix}report
