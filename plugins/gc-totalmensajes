@@ -1,47 +1,31 @@
-// Comando para mostrar total de mensajes por cada participante en orden
-let totalMensajes = async (m, { conn, participants }) => {
+let handler = async (m, { conn, participants, command }) => {
   if (!m.isGroup) return conn.reply(m.chat, 'Este comando solo funciona en grupos.', m);
 
-  // Obtener estado mensajes por usuario y ordenar descendiente
-  let usuariosMensajes = participants.map(user => {
-    let msgCount = (global.db.data.users[user.id]?.chat) || 0;
-    return {
+  if (command === 'totalmensajes') {
+    let usuariosMensajes = participants.map(user => ({
       id: user.id,
-      mensajes: msgCount
-    };
-  });
+      mensajes: (global.db.data.users[user.id]?.chat) || 0
+    }));
 
-  // Ordenar usuarios por total mensajes, descendente
-  usuariosMensajes.sort((a, b) => b.mensajes - a.mensajes);
+    usuariosMensajes.sort((a, b) => b.mensajes - a.mensajes);
 
-  // Construir mensaje para enviar
-  let texto = `📊 *Total de Mensajes por Usuario* 📊\n\n`;
-  texto += usuariosMensajes.map((u, i) => `${i + 1}. @${u.id.split('@')[0]} - *${u.mensajes}* mensajes`).join('\n');
+    let texto = `📊 *Total de Mensajes por Usuario* 📊\n\n`;
+    texto += usuariosMensajes.map((u, i) => `${i + 1}. @${u.id.split('@')[0]} - *${u.mensajes}* mensajes`).join('\n');
 
-  await conn.reply(m.chat, texto, m, { mentions: usuariosMensajes.map(u => u.id) });
+    await conn.reply(m.chat, texto, m, { mentions: usuariosMensajes.map(u => u.id) });
+  } else if (command === 'resetmensaje') {
+    participants.forEach(user => {
+      if (!global.db.data.users[user.id]) global.db.data.users[user.id] = {};
+      global.db.data.users[user.id].chat = 0;
+    });
+    await conn.reply(m.chat, '✅ Conteo de mensajes reiniciado para todos los participantes.', m);
+  }
 };
-totalMensajes.help = ['totalmensajes'];
-totalMensajes.tags = ['group'];
-totalMensajes.command = /^totalmensajes$/i;
-totalMensajes.admin = true;
-totalMensajes.botAdmin = true;
 
-// Comando para resetear conteo de mensajes de todos los usuarios (en el grupo)
-let resetMensaje = async (m, { conn, participants }) => {
-  if (!m.isGroup) return conn.reply(m.chat, 'Este comando solo funciona en grupos.', m);
-  
-  // Reiniciar el contador de mensajes para cada participante
-  participants.forEach(user => {
-    if (!global.db.data.users[user.id]) global.db.data.users[user.id] = {};
-    global.db.data.users[user.id].chat = 0;
-  });
+handler.help = ['totalmensajes', 'resetmensaje'];
+handler.tags = ['group'];
+handler.command = /^(totalmensajes|resetmensaje)$/i;
+handler.admin = true;
+handler.botAdmin = true;
 
-  await conn.reply(m.chat, '✅ Conteo de mensajes reiniciado para todos los participantes.', m);
-};
-resetMensaje.help = ['resetmensaje'];
-resetMensaje.tags = ['group'];
-resetMensaje.command = /^resetmensaje$/i;
-resetMensaje.admin = true;
-resetMensaje.botAdmin = true;
-
-export { totalMensajes, resetMensaje };
+export default handler;
