@@ -6,13 +6,12 @@ const handler = async (msg, { conn }) => {
     const chatId = msg.key.remoteJid;
     const senderJid = msg.key.participant || msg.key.remoteJid;
 
-    // Solo contar y ejecutar comandos en grupos
-    if (!chatId.endsWith("@g.us")) return;
+    if (!chatId.endsWith("@g.us")) return; // Solo grupos
 
     const rawID = conn.user?.id || "";
     const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
 
-    // Leer prefijo (opcional, usa "." si no hay archivo)
+    // Leer prefijo (por si tienes prefijos distintos)
     const prefixPath = path.resolve("prefixes.json");
     let prefixes = {};
     if (fs.existsSync(prefixPath)) {
@@ -20,10 +19,10 @@ const handler = async (msg, { conn }) => {
     }
     const usedPrefix = prefixes[rawID.split(":")[0] + "@s.whatsapp.net"] || ".";
 
-    // Texto del mensaje en minúsculas
+    // Obtener texto mensaje en minúsculas
     const body = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").toLowerCase();
 
-    // --- CONTAR el mensaje para TODOS
+    // ----- INCREMENTAR conteo de mensajes ¡SIEMPRE! aunque sea comando o no
     if (!global.db) global.db = {};
     if (!global.db.data) global.db.data = {};
     if (!global.db.data.groupChats) global.db.data.groupChats = {};
@@ -31,16 +30,18 @@ const handler = async (msg, { conn }) => {
     if (!global.db.data.groupChats[chatId][senderJid] == null) global.db.data.groupChats[chatId][senderJid] = { chat: 0 };
     global.db.data.groupChats[chatId][senderJid].chat += 1;
 
-    // --- Detectar si es comando
-    if (!body.startsWith(usedPrefix)) return; // No es comando, no responder
+    // ----- SOLO responder si es un comando con el prefijo correcto
+    if (!body.startsWith(usedPrefix)) return;
 
-    const command = body.slice(usedPrefix.length).split(" ")[0];
+    // Extraer comando sin prefijo ni argumentos
+    const command = body.slice(usedPrefix.length).trim().split(/\s+/)[0];
 
+    // Obtener info del grupo y participantes
     const metadata = await conn.groupMetadata(chatId);
     const participants = metadata.participants;
 
-    // Comando mostrar totalmensajes (todos pueden usar)
     if (command === "totalmensajes") {
+      // Preparar lista de usuarios excluyendo al bot
       let usuariosMensajes = participants
         .filter(user => !user.id.includes(botNumber))
         .map(user => ({
@@ -48,8 +49,10 @@ const handler = async (msg, { conn }) => {
           mensajes: global.db.data.groupChats[chatId]?.[user.id]?.chat || 0,
         }));
 
+      // Ordenar de mayor a menor
       usuariosMensajes.sort((a, b) => b.mensajes - a.mensajes);
 
+      // Crear texto con ranking
       let texto = `📊 *Total de Mensajes por Usuario en este Grupo* 📊\n\n`;
       texto += usuariosMensajes
         .map((u, i) => `${i + 1}. @${u.id.split("@")[0]} - *${u.mensajes}* mensajes`)
@@ -62,12 +65,18 @@ const handler = async (msg, { conn }) => {
       );
     }
 
-    // Comando resetmensaje (solo admins)
     if (command === "resetmensaje") {
+      // Solo admins o bot pueden resetear
       const sender = participants.find(p => p.id === senderJid);
       const isAdmin = sender?.admin === "admin" || sender?.admin === "superadmin";
-      if (!isAdmin) {
-        return await conn.sendMessage(chatId, { text: "❌ Solo administradores del grupo pueden usar este comando." }, { quoted: msg });
+      const isBot = botNumber === senderJid.replace(/[^0-9]/g, "");
+
+      if (!isAdmin && !isBot) {
+        return await conn.sendMessage(
+          chatId,
+          { text: "❌ Solo administradores o el bot pueden usar este comando." },
+          { quoted: msg }
+        );
       }
 
       participants.forEach(user => {
@@ -82,10 +91,23 @@ const handler = async (msg, { conn }) => {
       );
     }
   } catch (error) {
-    console.error("Error en totalmensajes handler:", error);
+    console.error("Error en handler totalmensajes:", error);
   }
 };
 
-// NO asignes handler.command ni handler.admin, para que se ejecute SIEMPRE y puedas contar todos los mensajes
+// **IMPORTANTE**
+// Para que este handler se ejecute en todos los mensajes y reconozca el comando,
+// DEBES establecer este regex para que el sistema llame al handler en esos comandos:
+//
+// Esto sí hará que solo se ejecute para mensajes que coincidan con estos comandos:
+//
+// Por eso el conteo solo sumará cuando escribas comandos,
+// a menos que tu bot permita ejecutar el handler sin esta línea.
+
+// Pero si tu entorno **exige** esta propiedad, ponla así:
+
+handler.command = /^(totalmensajes|resetmensaje)$/i;
+
+// Si tu bot soporta otro sistema, elimina esa línea o crea un handler separado para el conteo.
 
 export default handler;
