@@ -20,7 +20,6 @@ const handler = async (msg, { conn, args }) => {
 
   const chatId = msg.key.remoteJid;
   const senderNum = senderJid.replace(/[^0-9]/g, "");
-  const senderTag = `@${senderNum}`;
 
   if (!chatId.endsWith("@g.us")) {
     return await conn.sendMessage(
@@ -46,17 +45,31 @@ const handler = async (msg, { conn, args }) => {
   }
 
   const body = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").toLowerCase();
-
   const prefixEscaped = usedPrefix.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
   const commandRegex = new RegExp(`^${prefixEscaped}(\\w+)`);
   const commandMatch = body.match(commandRegex);
   const command = commandMatch ? commandMatch[1] : "";
 
+  // 🔁 Reconstrucción de historial si existe `global.db.data.chats`
+  if (command === "totalmensajes" && global.db?.data?.chats) {
+    for (const chat in global.db.data.chats) {
+      const mensajes = global.db.data.chats[chat];
+      for (const m of mensajes) {
+        const id = m.sender;
+        if (!id || id.includes(botNumber)) continue;
+        if (!global.db.data.users[id]) global.db.data.users[id] = {};
+        global.db.data.users[id].chat = (global.db.data.users[id].chat || 0) + 1;
+      }
+    }
+  }
+
   if (command === "totalmensajes") {
-    let usuariosMensajes = participants.map((user) => ({
-      id: user.id,
-      mensajes: global.db.data.users[user.id]?.chat || 0,
-    }));
+    let usuariosMensajes = participants
+      .filter((user) => !user.id.includes(botNumber))
+      .map((user) => ({
+        id: user.id,
+        mensajes: global.db.data.users[user.id]?.chat || 0,
+      }));
 
     usuariosMensajes.sort((a, b) => b.mensajes - a.mensajes);
 
