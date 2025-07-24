@@ -2,6 +2,11 @@ import fs from "fs";
 import path from "path";
 
 const handler = async (msg, { conn, args }) => {
+  // 📈 Conteo automático de mensajes por usuario
+  const senderJid = msg.key.participant || msg.key.remoteJid;
+  if (!global.db.data.users[senderJid]) global.db.data.users[senderJid] = {};
+  global.db.data.users[senderJid].chat = (global.db.data.users[senderJid].chat || 0) + 1;
+
   const rawID = conn.user?.id || "";
   const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
   const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
@@ -14,7 +19,6 @@ const handler = async (msg, { conn, args }) => {
   const usedPrefix = prefixes[subbotID] || ".";
 
   const chatId = msg.key.remoteJid;
-  const senderJid = msg.key.participant || msg.key.remoteJid;
   const senderNum = senderJid.replace(/[^0-9]/g, "");
   const senderTag = `@${senderNum}`;
 
@@ -51,7 +55,7 @@ const handler = async (msg, { conn, args }) => {
   if (command === "totalmensajes") {
     let usuariosMensajes = participants.map((user) => ({
       id: user.id,
-      mensajes: (global.db.data.users[user.id]?.chat) || 0,
+      mensajes: global.db.data.users[user.id]?.chat || 0,
     }));
 
     usuariosMensajes.sort((a, b) => b.mensajes - a.mensajes);
