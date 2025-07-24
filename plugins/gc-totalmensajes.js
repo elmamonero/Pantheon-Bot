@@ -2,11 +2,16 @@ import fs from "fs";
 import path from "path";
 
 const handler = async (msg, { conn, args }) => {
-  // 📈 Conteo automático de mensajes por usuario
   const senderJid = msg.key.participant || msg.key.remoteJid;
-  if (!global.db.data.users[senderJid]) global.db.data.users[senderJid] = {};
-  global.db.data.users[senderJid].chat = (global.db.data.users[senderJid].chat || 0) + 1;
+  const chatId = msg.key.remoteJid;
 
+  // 🧮 Conteo por grupo
+  if (!global.db.data.groupChats) global.db.data.groupChats = {};
+  if (!global.db.data.groupChats[chatId]) global.db.data.groupChats[chatId] = {};
+  if (!global.db.data.groupChats[chatId][senderJid]) global.db.data.groupChats[chatId][senderJid] = { chat: 0 };
+  global.db.data.groupChats[chatId][senderJid].chat += 1;
+
+  // ⚙️ Obtener datos del bot
   const rawID = conn.user?.id || "";
   const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
   const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
@@ -18,7 +23,6 @@ const handler = async (msg, { conn, args }) => {
   }
   const usedPrefix = prefixes[subbotID] || ".";
 
-  const chatId = msg.key.remoteJid;
   const senderNum = senderJid.replace(/[^0-9]/g, "");
   const senderTag = `@${senderNum}`;
 
@@ -46,7 +50,6 @@ const handler = async (msg, { conn, args }) => {
   }
 
   const body = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").toLowerCase();
-
   const prefixEscaped = usedPrefix.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&");
   const commandRegex = new RegExp(`^${prefixEscaped}(\\w+)`);
   const commandMatch = body.match(commandRegex);
@@ -57,12 +60,12 @@ const handler = async (msg, { conn, args }) => {
       .filter((user) => !user.id.includes(botNumber)) // 🚫 Excluir al bot
       .map((user) => ({
         id: user.id,
-        mensajes: global.db.data.users[user.id]?.chat || 0,
+        mensajes: global.db.data.groupChats[chatId]?.[user.id]?.chat || 0,
       }));
 
     usuariosMensajes.sort((a, b) => b.mensajes - a.mensajes);
 
-    let texto = `📊 *Total de Mensajes por Usuario* 📊\n\n`;
+    let texto = `📊 *Total de Mensajes por Usuario en este Grupo* 📊\n\n`;
     texto += usuariosMensajes
       .map((u, i) => `${i + 1}. @${u.id.split("@")[0]} - *${u.mensajes}* mensajes`)
       .join("\n");
@@ -74,13 +77,13 @@ const handler = async (msg, { conn, args }) => {
     );
   } else if (command === "resetmensaje") {
     participants.forEach((user) => {
-      if (!global.db.data.users[user.id]) global.db.data.users[user.id] = {};
-      global.db.data.users[user.id].chat = 0;
+      if (!global.db.data.groupChats[chatId]) global.db.data.groupChats[chatId] = {};
+      global.db.data.groupChats[chatId][user.id] = { chat: 0 };
     });
 
     return await conn.sendMessage(
       chatId,
-      { text: "✅ Conteo de mensajes reiniciado para todos los participantes." },
+      { text: "✅ Conteo de mensajes reiniciado para todos los participantes de este grupo." },
       { quoted: msg }
     );
   }
