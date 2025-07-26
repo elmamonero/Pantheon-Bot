@@ -31,7 +31,7 @@ const handler = async (msg, { conn, command }) => {
   const isAdmin = participant?.admin === 'admin' || participant?.admin === 'superadmin';
   const isBot = botNumber === senderNum;
 
-  if (!isAdmin && !isBot) {
+  if (!isAdmin && !isBot && ['totalmensaje', 'totalmensajes', 'resetmensaje', 'resetmensajes', 'resetearmensaje', 'resetearmensajes'].includes(command.toLowerCase())) {
     return await conn.sendMessage(chatId, { text: '❌ Solo los administradores o el bot pueden usar este comando.' }, { quoted: msg });
   }
 
@@ -42,8 +42,9 @@ const handler = async (msg, { conn, command }) => {
     conteoData = {};
   }
 
-  // Comando independiente resetmensaje
-  if (command.toLowerCase() === 'resetmensaje') {
+  const cmd = command.toLowerCase();
+
+  if (['resetmensaje', 'resetmensajes', 'resetearmensaje', 'resetearmensajes'].includes(cmd)) {
     if (conteoData[chatId]) {
       delete conteoData[chatId];
       guardarConteo(conteoData);
@@ -53,8 +54,7 @@ const handler = async (msg, { conn, command }) => {
     }
   }
 
-  // Si el comando es totalmensaje
-  if (command.toLowerCase() === 'totalmensaje') {
+  if (['totalmensaje', 'totalmensajes'].includes(cmd)) {
     const groupData = conteoData[chatId];
     if (!groupData || Object.keys(groupData).length === 0) {
       return await conn.sendMessage(chatId, { text: '⚠️ No hay datos de mensajes todavía en este grupo.' }, { quoted: msg });
@@ -75,7 +75,17 @@ const handler = async (msg, { conn, command }) => {
 
     await conn.sendMessage(chatId, { text: texto, mentions: menciones }, { quoted: msg });
   }
+
+  if (cmd === 'mimensajes') {
+    const groupData = conteoData[chatId];
+    const userCount = groupData ? groupData[senderJid] || 0 : 0;
+    return await conn.sendMessage(chatId, {
+      text: `✉️ @${senderNum}, has enviado *${userCount}* mensaje(s) en este grupo.`,
+      mentions: [senderJid]
+    }, { quoted: msg });
+  }
 };
 
-handler.command = /^(totalmensaje|resetmensaje)$/i;
+handler.command = /^(totalmensaje|totalmensajes|resetmensaje|resetmensajes|resetearmensaje|resetearmensajes|mimensajes)$/i;
+
 export default handler;
