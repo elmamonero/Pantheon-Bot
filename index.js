@@ -159,6 +159,17 @@ version,
 
 global.conn = makeWASocket(connectionOptions);
 
+import { contarMensaje } from './plugins/contador.js';
+
+conn.ev.on('messages.upsert', async (m) => {
+  const messages = m.messages || [];
+  for (const msg of messages) {
+    if (!msg.key.fromMe && msg.message) {
+      await contarMensaje(msg, conn);
+    }
+  }
+});
+
 if (!fs.existsSync(`./${sessions}/creds.json`)) {
 if (opcion === '2' || methodCode) {
 opcion = '2'
