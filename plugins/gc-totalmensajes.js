@@ -1,16 +1,14 @@
-import path from "path";
+// totalmensaje.js
 import fs from "fs";
+import path from "path";
 
 const conteoPath = path.resolve("./conteo.js");
 
-// Función para leer datos desde el archivo .js como módulo
 async function leerConteo() {
-  // Para evitar cache:
   const datos = await import(conteoPath + "?update=" + Date.now());
   return datos.default || {};
 }
 
-// Función para guardar datos en el archivo .js
 function guardarConteo(data) {
   const contenido = "export default " + JSON.stringify(data, null, 2) + ";\n";
   fs.writeFileSync(conteoPath, contenido);
@@ -23,9 +21,12 @@ const handler = async (msg, { conn, args }) => {
   const senderJid = msg.key.participant || msg.key.remoteJid;
   const senderNum = senderJid.replace(/[^0-9]/g, "");
 
-  // Solo en grupos
   if (!chatId.endsWith("@g.us")) {
-    return await conn.sendMessage(chatId, { text: "❌ Este comando solo puede usarse en grupos." }, { quoted: msg });
+    return await conn.sendMessage(
+      chatId,
+      { text: "❌ Este comando solo puede usarse en grupos." },
+      { quoted: msg }
+    );
   }
 
   const metadata = await conn.groupMetadata(chatId);
@@ -36,27 +37,47 @@ const handler = async (msg, { conn, args }) => {
   const isBot = botNumber === senderNum;
 
   if (!isAdmin && !isBot) {
-    return await conn.sendMessage(chatId, { text: "❌ Solo los administradores o el bot pueden usar este comando." }, { quoted: msg });
+    return await conn.sendMessage(
+      chatId,
+      { text: "❌ Solo los administradores o el bot pueden usar este comando." },
+      { quoted: msg }
+    );
   }
 
   const accion = (args[0] || "").toLowerCase();
 
-  // Leer conteo (usando la función con import dinámico)
-  const conteoData = await leerConteo();
+  let conteoData;
+  try {
+    conteoData = await leerConteo();
+  } catch {
+    conteoData = {};
+  }
 
   if (accion === "resetmensaje") {
     if (conteoData[chatId]) {
       delete conteoData[chatId];
       guardarConteo(conteoData);
-      return await conn.sendMessage(chatId, { text: "♻️ *Conteo de mensajes reiniciado para este grupo.*" }, { quoted: msg });
+      return await conn.sendMessage(
+        chatId,
+        { text: "♻️ *Conteo de mensajes reiniciado para este grupo.*" },
+        { quoted: msg }
+      );
     } else {
-      return await conn.sendMessage(chatId, { text: "⚠️ No hay conteo para reiniciar en este grupo." }, { quoted: msg });
+      return await conn.sendMessage(
+        chatId,
+        { text: "⚠️ No hay conteo para reiniciar en este grupo." },
+        { quoted: msg }
+      );
     }
   }
 
   const groupData = conteoData[chatId];
   if (!groupData || Object.keys(groupData).length === 0) {
-    return await conn.sendMessage(chatId, { text: "⚠️ No hay datos de mensajes todavía en este grupo." }, { quoted: msg });
+    return await conn.sendMessage(
+      chatId,
+      { text: "⚠️ No hay datos de mensajes todavía en este grupo." },
+      { quoted: msg }
+    );
   }
 
   const usuariosOrdenados = Object.entries(groupData)
@@ -72,7 +93,11 @@ const handler = async (msg, { conn, args }) => {
     if (!menciones.includes(userId)) menciones.push(userId);
   });
 
-  await conn.sendMessage(chatId, { text: texto, mentions: menciones }, { quoted: msg });
+  await conn.sendMessage(
+    chatId,
+    { text: texto, mentions: menciones },
+    { quoted: msg }
+  );
 };
 
 handler.command = /^totalmensaje|resetmensaje$/i;
