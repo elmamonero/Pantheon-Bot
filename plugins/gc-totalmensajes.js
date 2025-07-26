@@ -13,7 +13,7 @@ function guardarConteo(data) {
   fs.writeFileSync(conteoPath, contenido);
 }
 
-const handler = async (msg, { conn, args }) => {
+const handler = async (msg, { conn, command }) => {
   const rawID = conn.user?.id || '';
   const botNumber = rawID.split(':')[0].replace(/[^0-9]/g, '');
   const chatId = msg.key.remoteJid;
@@ -35,8 +35,6 @@ const handler = async (msg, { conn, args }) => {
     return await conn.sendMessage(chatId, { text: '❌ Solo los administradores o el bot pueden usar este comando.' }, { quoted: msg });
   }
 
-  const accion = (args[0] || '').toLowerCase();
-
   let conteoData;
   try {
     conteoData = await leerConteo();
@@ -44,7 +42,8 @@ const handler = async (msg, { conn, args }) => {
     conteoData = {};
   }
 
-  if (accion === 'resetmensaje') {
+  // Comando independiente resetmensaje
+  if (command.toLowerCase() === 'resetmensaje') {
     if (conteoData[chatId]) {
       delete conteoData[chatId];
       guardarConteo(conteoData);
@@ -54,26 +53,29 @@ const handler = async (msg, { conn, args }) => {
     }
   }
 
-  const groupData = conteoData[chatId];
-  if (!groupData || Object.keys(groupData).length === 0) {
-    return await conn.sendMessage(chatId, { text: '⚠️ No hay datos de mensajes todavía en este grupo.' }, { quoted: msg });
+  // Si el comando es totalmensaje
+  if (command.toLowerCase() === 'totalmensaje') {
+    const groupData = conteoData[chatId];
+    if (!groupData || Object.keys(groupData).length === 0) {
+      return await conn.sendMessage(chatId, { text: '⚠️ No hay datos de mensajes todavía en este grupo.' }, { quoted: msg });
+    }
+
+    const usuariosOrdenados = Object.entries(groupData)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10);
+
+    let texto = `🏆 *Top 10 usuarios más activos en ${metadata.subject || 'este grupo'}:*\n\n`;
+    const menciones = [];
+
+    usuariosOrdenados.forEach(([userId, total], index) => {
+      const num = userId.split('@')[0];
+      texto += `${index + 1}.- @${num} ➤ ${total} mensajes\n`;
+      if (!menciones.includes(userId)) menciones.push(userId);
+    });
+
+    await conn.sendMessage(chatId, { text: texto, mentions: menciones }, { quoted: msg });
   }
-
-  const usuariosOrdenados = Object.entries(groupData)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 10);
-
-  let texto = `🏆 *Top 10 usuarios más activos en ${metadata.subject || 'este grupo'}:*\n\n`;
-  const menciones = [];
-
-  usuariosOrdenados.forEach(([userId, total], index) => {
-    const num = userId.split('@')[0];
-    texto += `${index + 1}.- @${num} ➤ ${total} mensajes\n`;
-    if (!menciones.includes(userId)) menciones.push(userId);
-  });
-
-  await conn.sendMessage(chatId, { text: texto, mentions: menciones }, { quoted: msg });
 };
 
-handler.command = /^totalmensaje|resetmensaje$/i;
+handler.command = /^(totalmensaje|resetmensaje)$/i;
 export default handler;
