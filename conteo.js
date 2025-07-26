@@ -1,9 +1,9 @@
-import path from "path";
+// contador.js
 import fs from "fs";
+import path from "path";
 
 const conteoPath = path.resolve("./conteo.js");
 
-// Importar datos con import() dinámico
 async function leerConteo() {
   const datos = await import(conteoPath + "?update=" + Date.now());
   return datos.default || {};
