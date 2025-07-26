@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-const conteoPath = path.resolve("./conteo.js");
+const conteoPath = path.resolve("./conteo.json"); // archivo JSON para datos
 
 const handler = async (msg, { conn, args }) => {
   const rawID = conn.user?.id || "";
@@ -11,7 +11,6 @@ const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
   const senderJid = msg.key.participant || msg.key.remoteJid;
   const senderNum = senderJid.replace(/[^0-9]/g, "");
-  const senderTag = `@${senderNum}`;
 
   if (!chatId.endsWith("@g.us")) {
     return await conn.sendMessage(
@@ -23,8 +22,8 @@ const handler = async (msg, { conn, args }) => {
 
   const metadata = await conn.groupMetadata(chatId);
   const participants = metadata.participants;
-  const memberCount = participants.length;
 
+  // Verificar si el usuario es admin o el bot
   const participant = participants.find((p) => p.id.includes(senderNum));
   const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
   const isBot = botNumber === senderNum;
@@ -37,27 +36,31 @@ const handler = async (msg, { conn, args }) => {
     );
   }
 
-  // Cargar datos del conteo de mensajes
+  // Leer datos actualizados de conteo
   const conteoData = fs.existsSync(conteoPath)
     ? JSON.parse(fs.readFileSync(conteoPath, "utf-8"))
     : {};
 
-  // El primer argumento definirá la acción: resetmensaje o totalmensaje
   const accion = (args[0] || "").toLowerCase();
 
   if (accion === "resetmensaje") {
     if (conteoData[chatId]) {
       delete conteoData[chatId];
       fs.writeFileSync(conteoPath, JSON.stringify(conteoData, null, 2));
+      return await conn.sendMessage(
+        chatId,
+        { text: "♻️ *Conteo de mensajes reiniciado para este grupo.*" },
+        { quoted: msg }
+      );
+    } else {
+      return await conn.sendMessage(
+        chatId,
+        { text: "⚠️ No hay conteo previo para reiniciar en este grupo." },
+        { quoted: msg }
+      );
     }
-    return await conn.sendMessage(
-      chatId,
-      { text: "♻️ *Conteo de mensajes reiniciado para este grupo.*" },
-      { quoted: msg }
-    );
   }
 
-  // Mostrar top 10 usuarios con más mensajes
   const groupData = conteoData[chatId];
 
   if (!groupData || Object.keys(groupData).length === 0) {
@@ -93,7 +96,7 @@ const handler = async (msg, { conn, args }) => {
     chatId,
     {
       text: texto,
-      mentions: menciones
+      mentions: menciones,
     },
     { quoted: msg }
   );
