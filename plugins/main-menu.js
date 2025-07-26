@@ -154,6 +154,9 @@ ${readMore}
 ⠞🌿੭‎ ${usedPrefix}demote *@tag*
 ⠞🌿੭‎ ${usedPrefix}kick *@tag*
 ⠞🌿੭‎ ${usedPrefix}mute *@tag*
+⠞🌿੭‎ ${usedPrefix}totalmensajes
+⠞🌿੭‎ ${usedPrefix}resetmensajes
+⠞🌿੭‎ ${usedPrefix}mimensajes
 ⠞🌿੭‎ ${usedPrefix}inactivos *opción*
 ⠞🌿੭‎ ${usedPrefix}tagnum *prefix*
 ⠞🌿੭‎ ${usedPrefix}link
