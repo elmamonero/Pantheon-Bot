@@ -205,7 +205,7 @@ async function revisarEstados(conn) {
   }
 }
 
-// --- Función para iniciar el verificador automático ---
+// --- Función para inhiciar el verificador automático ---
 
 function iniciarVerificador(conn) {
   setInterval(() => {
