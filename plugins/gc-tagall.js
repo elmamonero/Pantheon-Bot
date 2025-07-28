@@ -62,11 +62,11 @@ const handler = async (msg, { conn, args }) => {
       : "*AVISO:* ¡Atención a todos!*";
 
   const mentionList = participants
-    .map((p) => `യ ׄ⚡˚ @${p.id.split("@")[0]}`)
-    .join("\n");
+  .map((p) => `യ ׄ⚡˚@${p.id.split("@")[0]}`)
+  .join("\n");
 
-  const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
-┃🔹 *PANTHEON BOT* ${emoji}
+const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
+┃🔹 *PANTHEON BOT* ⚡
 ┃👤 *Invocado por:* ${senderTag}
 ┃👥 *Miembros del grupo: ${memberCount}*
 ╰━━━━━━━⋆★⋆━━━━━━━⬣
