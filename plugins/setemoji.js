@@ -29,7 +29,6 @@ const handler = async (msg, { conn, args, command }) => {
     );
   }
 
-  // Verificar si es admin
   const metadata = await conn.groupMetadata(chatId);
   const participant = metadata.participants.find(p => p.id === senderJid);
   const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
@@ -52,9 +51,22 @@ const handler = async (msg, { conn, args, command }) => {
         { quoted: msg }
       );
     }
+
     const emoji = args[0];
+
+    // Validar que el texto sea un emoji válido
+    const emojiRegex = /\p{Emoji}/u; // Regex Unicode para emojis
+    if (!emojiRegex.test(emoji)) {
+      return await conn.sendMessage(
+        chatId,
+        { text: "❗️ Por favor, ingresa un solo emoji válido." },
+        { quoted: msg }
+      );
+    }
+
     datos[chatId] = emoji;
     guardarEmojisGrupo(datos);
+
     await conn.sendMessage(
       chatId,
       { text: `✅ Emoji del grupo cambiado a: ${emoji}` },
