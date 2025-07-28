@@ -17,7 +17,7 @@ function guardarEmojisGrupo(data) {
   fs.writeFileSync(emojisPath, contenido);
 }
 
-const handler = async (msg, { conn, args }) => {
+const handler = async (msg, { conn, args, command }) => {
   const chatId = msg.key.remoteJid;
   const senderJid = msg.key.participant || msg.key.remoteJid;
 
@@ -37,32 +37,49 @@ const handler = async (msg, { conn, args }) => {
   if (!isAdmin) {
     return await conn.sendMessage(
       chatId,
-      { text: "❌ Solo los administradores pueden cambiar el emoji del grupo." },
+      { text: "❌ Solo los administradores pueden usar este comando." },
       { quoted: msg }
     );
   }
-
-  if (!args.length) {
-    return await conn.sendMessage(
-      chatId,
-      { text: "❗️ Por favor, usa el comando seguido del emoji deseado. Ejemplo: `.setemoji ⚡`" },
-      { quoted: msg }
-    );
-  }
-
-  const emoji = args[0];
 
   let datos = await leerEmojisGrupo();
-  datos[chatId] = emoji;
-  guardarEmojisGrupo(datos);
 
-  await conn.sendMessage(
-    chatId,
-    { text: `✅ Emoji del grupo cambiado a: ${emoji}` },
-    { quoted: msg }
-  );
+  if (command.toLowerCase() === "setemoji") {
+    if (!args.length) {
+      return await conn.sendMessage(
+        chatId,
+        { text: "❗️ Por favor, usa el comando seguido del emoji deseado. Ejemplo: `.setemoji ⚡`" },
+        { quoted: msg }
+      );
+    }
+    const emoji = args[0];
+    datos[chatId] = emoji;
+    guardarEmojisGrupo(datos);
+    await conn.sendMessage(
+      chatId,
+      { text: `✅ Emoji del grupo cambiado a: ${emoji}` },
+      { quoted: msg }
+    );
+
+  } else if (command.toLowerCase() === "resetemoji") {
+    if (datos[chatId]) {
+      delete datos[chatId];
+      guardarEmojisGrupo(datos);
+      await conn.sendMessage(
+        chatId,
+        { text: "✅ Emoji del grupo ha sido reseteado al predeterminado." },
+        { quoted: msg }
+      );
+    } else {
+      await conn.sendMessage(
+        chatId,
+        { text: "ℹ️ No había emoji personalizado para resetear." },
+        { quoted: msg }
+      );
+    }
+  }
 };
 
-handler.command = /^setemoji$/i;
+handler.command = /^(setemoji|resetemoji)$/i;
 
 export default handler;
