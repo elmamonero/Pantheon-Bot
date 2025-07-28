@@ -62,7 +62,7 @@ const handler = async (msg, { conn, args }) => {
       : "*AVISO:* ¡Atención a todos!*";
 
   const mentionList = participants
-    .map((p) => `യ ׄ🫦˚ @${p.id.split("@")[0]}`)
+    .map((p) => `യ ׄ⚡˚ @${p.id.split("@")[0]}`)
     .join("\n");
 
   const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
