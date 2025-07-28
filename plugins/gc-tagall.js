@@ -25,7 +25,9 @@ const handler = async (msg, { conn, args }) => {
   if (!chatId.endsWith("@g.us")) {
     return await conn.sendMessage(
       chatId,
-      { text: "⚠️ *Este comando solo se puede usar en grupos.*" },
+      {
+        text: "⚠️ *Este comando solo se puede usar en grupos.*"
+      },
       { quoted: msg }
     );
   }
@@ -35,35 +37,41 @@ const handler = async (msg, { conn, args }) => {
   const memberCount = participants.length;
 
   const participant = participants.find(p => p.id.includes(senderNum));
-  const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
+  const isAdmin =
+    participant?.admin === "admin" || participant?.admin === "superadmin";
   const isBot = botNumber === senderNum;
 
   if (!isAdmin && !isBot) {
     return await conn.sendMessage(
       chatId,
-      { text: "❌ Solo los administradores del grupo o el subbot pueden usar este comando." },
+      {
+        text: "❌ Solo los administradores del grupo o el subbot pueden usar este comando."
+      },
       { quoted: msg }
     );
   }
 
   let datos = await leerEmojisGrupo();
-  const emoji = datos[chatId] || "👋";
+  const emoji = datos[chatId] || "⚡"; // Emoji por defecto si no hay uno guardado
 
-  const mentionIds = participants.map(p => p.id);
+  const mentionIds = participants.map((p) => p.id);
   const extraMsg = args.join(" ");
-  const aviso = extraMsg.trim().length > 0 ? `*AVISO:* ${extraMsg}` : "*AVISO:* ¡Atención a todos!";
+  const aviso =
+    extraMsg.trim().length > 0
+      ? `*AVISO:* ${extraMsg}`
+      : "*AVISO:* ¡Atención a todos!*";
 
   const mentionList = participants
-    .map((p) => `${emoji} │➜ @${p.id.split("@")[0]}`)
+    .map((p) => `യ ׄ🫦˚ @${p.id.split("@")[0]}`)
     .join("\n");
 
   const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
-┃🔹 *PANTHEON BOT* ⚡
+┃🔹 *PANTHEON BOT* ${emoji}
 ┃👤 *Invocado por:* ${senderTag}
 ┃👥 *Miembros del grupo: ${memberCount}*
 ╰━━━━━━━⋆★⋆━━━━━━━⬣
 
-*${aviso}*
+${aviso}
 
 📲 *Etiquetando a todos los miembros...*
 
@@ -74,7 +82,7 @@ ${mentionList}
     chatId,
     {
       text: finalMsg,
-      mentions: mentionIds,
+      mentions: mentionIds
     },
     { quoted: msg }
   );
