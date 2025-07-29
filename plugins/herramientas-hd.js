@@ -1,81 +1,81 @@
-import FormData from "form-data"
+import fs from "fs"
+import path from "path"
+import fetch from "node-fetch"
 import Jimp from "jimp"
+import FormData from "form-data"
+import { fileURLToPath } from "url"
 
-let handler = async (m, { conn, usedPrefix, command }) => {
-  conn.hdr = conn.hdr ? conn.hdr : {}
-  if (m.sender in conn.hdr)
-    throw m.reply("✧ Aún hay procesos en el chat >//<");
-  let q = m.quoted ? m.quoted : m
-  let mime = (q.msg || q).mimetype || q.mediaType || ""
-  if (!mime)
-    throw m.reply(`*[ ℹ️ ] Etiqueta una Imagen.*`)
-  if (!/image\/(jpe?g|png)/.test(mime))
-    throw m.reply(`*[ ℹ️ ] Etiqueta una Imagen.*`);
-  else conn.hdr[m.sender] = true;
-  m.reply("*Mejorando la calidad de imagen...*")
-  let img = await q.download?.()
-  let error
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const handler = async (m, { conn }) => {
+  conn.hdr = conn.hdr || {}
+  if (m.sender in conn.hdr) {
+    return m.reply("✧ Aún hay procesos en el chat >//<")
+  }
+  conn.hdr[m.sender] = true
+
   try {
-    const This = await processing(img, "enhance")
-    conn.sendFile(m.chat, This, "", "*Listo :3*", m)
-  } catch (er) {
-    error = true
-  } finally {
-    if (error) {
-      m.reply("Error :(")
+    const q = m.quoted || m
+    const mime = (q.msg || q).mimetype || q.mediaType || ""
+
+    if (!/^image\/(jpe?g|png)$/.test(mime)) {
+      delete conn.hdr[m.sender]
+      return m.reply('🪐 Responde a una imagen JPG o PNG.')
     }
+
+    await conn.sendMessage(m.chat, { text: `⏳ Mejorando la calidad de tu imagen, espera un momento...` }, { quoted: m })
+
+    const buffer = await q.download()
+    const image = await Jimp.read(buffer)
+    image.resize(800, Jimp.AUTO)
+    const tmp = path.join(__dirname, `tmp_${Date.now()}.jpg`)
+    await image.writeAsync(tmp)
+
+    // Lógica de mejora usando Vyro.AI
+    const enhancedBuffer = await enhanceWithVyro(fs.readFileSync(tmp))
+    await fs.promises.unlink(tmp)
+
+    await conn.sendFile(m.chat, enhancedBuffer, 'hd.jpg', '', m)
+    await conn.sendMessage(m.chat, { text: "✅ Imagen mejorada." }, { quoted: m })
+  } catch (err) {
+    conn.reply(m.chat, `*Error:* ${err.message}\n > 🕊️.`, m)
+  } finally {
     delete conn.hdr[m.sender]
   }
 }
 
-handler.help = ['hd *<img>*', 'remini *<img>*']
-handler.tags = ['herramientas']
-handler.command = /^(hd|remini)$/i
-handler.register = true
+handler.help = ['upscale']
+handler.tags = ['tools']
+handler.command = ['hd', 'remini', 'upscale']
 
 export default handler
 
-async function processing(urlPath, method) {
-  return new Promise(async (resolve, reject) => {
-    let Methods = ["enhance"]
-    Methods.includes(method) ? (method = method) : (method = Methods[0]);
-    let buffer,
-      Form = new FormData(),
-      scheme = "https" + "://" + "inferenceengine" + ".vyro" + ".ai/" + method;
-    Form.append("model_version", 1, {
-      "Content-Transfer-Encoding": "binary",
-      contentType: "multipart/form-data; charset=uttf-8",
-    });
-    Form.append("image", Buffer.from(urlPath), {
+async function enhanceWithVyro(imgBuffer) {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append("model_version", 1)
+    form.append("image", imgBuffer, {
       filename: "enhance_image_body.jpg",
-      contentType: "image/jpeg",
-    });
-    Form.submit(
-      {
-        url: scheme,
-        host: "inferenceengine" + ".vyro" + ".ai",
-        path: "/" + method,
-        protocol: "https:",
-        headers: {
-          "User-Agent": "okhttp/4.9.3",
-          Connection: "Keep-Alive",
-          "Accept-Encoding": "gzip",
-        },
-      },
-      function (err, res) {
-        if (err) reject();
-        let data = [];
-        res
-          .on("data", function (chunk, resp) {
-            data.push(chunk);
-          })
-          .on("end", () => {
-            resolve(Buffer.concat(data));
-          });
-        res.on("error", (e) => {
-          reject();
-        });
+      contentType: "image/jpeg"
+    })
+
+    form.submit({
+      url: "https://inferenceengine.vyro.ai/enhance",
+      host: "inferenceengine.vyro.ai",
+      path: "/enhance",
+      protocol: "https:",
+      headers: {
+        "User-Agent": "okhttp/4.9.3",
+        Connection: "Keep-Alive",
+        "Accept-Encoding": "gzip",
       }
-    );
-  });
+    }, (err, res) => {
+      if (err) return reject(new Error("Error en la API Vyro."))
+      const data = []
+      res.on("data", chunk => data.push(chunk))
+      res.on("end", () => resolve(Buffer.concat(data)))
+      res.on("error", reject)
+    })
+  })
 }
