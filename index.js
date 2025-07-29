@@ -157,24 +157,72 @@ defaultQueryTimeoutMs: undefined,
 version,
 }
 
-import { handler } from './handler.js';  // Importa solo una vez
+// ---- IMPORTACIONES ESPECÍFICAS DEL HANDLER Y CONTADOR ----
+import { handler } from './handler.js' // Ajusta la ruta si está en otra carpeta
+import { contarMensaje } from './plugins/contador.js' // Ajusta ruta si necesario
 
-global.conn = makeWASocket(connectionOptions);
+// Crear e inicializar la conexión principal del bot
+global.conn = makeWASocket(connectionOptions)
 
-conn.handler = handler.bind(conn);
+conn.handler = handler.bind(conn)
 
+// ÚNICO listener para manejo de mensajes y comandos
 conn.ev.on('messages.upsert', async (m) => {
-  const messages = m.messages || [];
+  const messages = m.messages || []
   for (const msg of messages) {
     if (!msg.key.fromMe && msg.message) {
       try {
-        await conn.handler(msg, { conn });
+        // Ejecutar el handler para comandos (.programargrupo incluido)
+        await conn.handler(msg, { conn })
+        // Ejecutar otras funciones en mensajes, como contador de mensajes
+        await contarMensaje(msg, conn)
       } catch (e) {
-        console.error('Error en handler:', e);
+        console.error('Error en handler o contador:', e)
       }
     }
   }
-});
+})
+
+// Eventos básicos para manejar conexión y credenciales
+conn.ev.on('connection.update', (update) => {
+  const { connection, lastDisconnect } = update
+  if (connection === 'close') {
+    console.log(chalk.redBright('⚠ Conexión cerrada, reconectando...'))
+    // Aquí tu lógica para reconectar o limpiar
+  }
+  if (connection === 'open') {
+    console.log(chalk.green('✔ Bot conectado correctamente'))
+  }
+})
+
+conn.ev.on('creds.update', () => saveCreds())
+
+// Aquí puedes incorporar tu lógica para limpieza de sesiones, archivos temporales, recarga dinámica, etc.
+// ... (agrega tus funciones purgeSession, purgeOldFiles, clearTmp, etc. debajo)
+
+// Ejemplo de función clearTmp para limpiar tmp cada cierto tiempo
+async function clearTmp() {
+  const tmpDir = join(__dirname, 'tmp')
+  if (!existsSync(tmpDir)) return
+  const filenames = readdirSync(tmpDir)
+  for (const file of filenames) {
+    try {
+      unlinkSync(join(tmpDir, file))
+    } catch (e) {
+      console.error('Error borrando tmp:', e)
+    }
+  }
+}
+
+// Ejecuta limpieza tmp cada 4 minutos (personaliza como necesites)
+setInterval(async () => {
+  await clearTmp()
+  console.log(chalk.cyan('Archivos temporales limpiados'))
+}, 1000 * 60 * 4)
+
+// Agrega aquí tus demás funciones auxiliares y calls a setInterval según veas en tu código original
+
+// Puedes exportar global.conn o definiciones adicionales para otros módulos si los usas
 
 import { contarMensaje } from './plugins/contador.js';
 
