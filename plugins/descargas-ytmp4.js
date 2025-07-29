@@ -11,6 +11,8 @@ const handler = async (m, { conn, args }) => {
 
   try {
     await m.react('🕒');
+    console.log(`Solicitando video: ${url}`);
+
     // 1. Consultar la API de Vreden para obtener el video
     const { data } = await axios.get(`https://api.vreden.my.id/api/ytmp4?url=${encodeURIComponent(url)}`);
 
@@ -22,11 +24,17 @@ const handler = async (m, { conn, args }) => {
     // 2. Extraer los datos relevantes
     const title = data.result.metadata.title || "video";
     const videoUrl = data.result.download.url;
-    const fileName = data.result.download.filename || `${title}.mp4`;
+    const fileNameRaw = data.result.download.filename || `${title}.mp4`;
+    // Limpieza básica del nombre para evitar caracteres inválidos
+    const fileName = fileNameRaw.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
     const thumbnail = data.result.metadata.thumbnail || data.result.metadata.image;
 
+    console.log(`Título: ${title}`);
+    console.log(`URL de descarga: ${videoUrl}`);
+    console.log(`Archivo: ${fileName}`);
+
     // 3. Descargar el archivo MP4 a directorio temporal
-    const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/[\\/\s]/g, '_')}`);
+    const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     const response = await axios.get(videoUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -42,9 +50,20 @@ const handler = async (m, { conn, args }) => {
       writer.on('error', reject);
     });
 
-    // 4. Enviar el video al chat
+    const stats = fs.statSync(dest);
+    console.log(`Video guardado: ${dest} (tamaño ${stats.size} bytes)`);
+
+    // Validar límite aproximado de tamaño permitido (generalmente WhatsApp: <100MB)
+    const MAX_SIZE = 100 * 1024 * 1024;
+    if (stats.size > MAX_SIZE) {
+      fs.unlinkSync(dest);
+      await m.react('✖️');
+      return m.reply('⚠️ El archivo es demasiado grande para enviarlo por WhatsApp.');
+    }
+
+    // 4. Enviar el video al chat usando stream para menor uso de memoria
     await conn.sendMessage(m.chat, {
-      video: fs.readFileSync(dest),
+      video: fs.createReadStream(dest),
       mimetype: 'video/mp4',
       fileName,
       contextInfo: {
@@ -57,7 +76,7 @@ const handler = async (m, { conn, args }) => {
       }
     }, { quoted: m });
 
-    fs.unlinkSync(dest); // Borra temporal al terminar
+    fs.unlinkSync(dest); // borra archivo temporal
 
     await m.react('✅');
   } catch (e) {
