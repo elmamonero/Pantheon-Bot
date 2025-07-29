@@ -157,6 +157,7 @@ defaultQueryTimeoutMs: undefined,
 version,
 }
 
+global.conn = makeWASocket(connectionOptions);
 
 import { contarMensaje } from './plugins/contador.js';
 
