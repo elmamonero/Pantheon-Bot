@@ -307,7 +307,6 @@ console.log(chalk.bold.redBright(`\n⚠︎！ RAZON DE DESCONEXIÓN DESCONOCIDA:
 process.on('uncaughtException', console.error)
 
 let isInit = true;
-let handler = await import('./handler.js')
 global.reloadHandler = async function(restatConn) {
 try {
 const Handler = await import(`./handler.js?update=${Date.now()}`).catch(console.error);
