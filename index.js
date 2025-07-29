@@ -161,10 +161,8 @@ import { handler } from './handler.js';  // Importa solo una vez
 
 global.conn = makeWASocket(connectionOptions);
 
-// Asigna el handler complementando 'conn'
 conn.handler = handler.bind(conn);
 
-// Solo un listener que llama a tu handler
 conn.ev.on('messages.upsert', async (m) => {
   const messages = m.messages || [];
   for (const msg of messages) {
@@ -177,8 +175,6 @@ conn.ev.on('messages.upsert', async (m) => {
     }
   }
 });
-
-
 
 import { contarMensaje } from './plugins/contador.js';
 
