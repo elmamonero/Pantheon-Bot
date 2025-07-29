@@ -157,27 +157,27 @@ defaultQueryTimeoutMs: undefined,
 version,
 }
 
-global.conn = makeWASocket(connectionOptions)
+import { handler } from './handler.js';  // Importa solo una vez
 
-// Importa el handler (ajusta la ruta si es necesario)
-import { handler } from './handler.js'
+global.conn = makeWASocket(connectionOptions);
 
-// Asigna el handler a conn para procesar comandos
-conn.handler = handler.bind(conn)
+// Asigna el handler complementando 'conn'
+conn.handler = handler.bind(conn);
 
-// Escuchar nuevos mensajes y procesarlos con el handler
+// Solo un listener que llama a tu handler
 conn.ev.on('messages.upsert', async (m) => {
-  const messages = m.messages || []
+  const messages = m.messages || [];
   for (const msg of messages) {
     if (!msg.key.fromMe && msg.message) {
       try {
-        await conn.handler(msg, { conn })
+        await conn.handler(msg, { conn });
       } catch (e) {
-        console.error('Error en handler:', e)
+        console.error('Error en handler:', e);
       }
     }
   }
-})
+});
+
 
 
 import { contarMensaje } from './plugins/contador.js';
