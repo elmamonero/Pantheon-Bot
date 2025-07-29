@@ -157,71 +157,17 @@ defaultQueryTimeoutMs: undefined,
 version,
 }
 
-// ---- IMPORTACIONES ESPECÍFICAS DEL HANDLER Y CONTADOR ----
-import { handler } from './handler.js' // Ajusta la ruta si está en otra carpeta
-import { contarMensaje } from './plugins/contador.js' // Ajusta ruta si necesario
 
-// Crear e inicializar la conexión principal del bot
-global.conn = makeWASocket(connectionOptions)
+import { contarMensaje } from './plugins/contador.js';
 
-conn.handler = handler.bind(conn)
-
-// ÚNICO listener para manejo de mensajes y comandos
 conn.ev.on('messages.upsert', async (m) => {
-  const messages = m.messages || []
+  const messages = m.messages || [];
   for (const msg of messages) {
     if (!msg.key.fromMe && msg.message) {
-      try {
-        // Ejecutar el handler para comandos (.programargrupo incluido)
-        await conn.handler(msg, { conn })
-        // Ejecutar otras funciones en mensajes, como contador de mensajes
-        await contarMensaje(msg, conn)
-      } catch (e) {
-        console.error('Error en handler o contador:', e)
-      }
+      await contarMensaje(msg, conn);
     }
   }
-})
-
-// Eventos básicos para manejar conexión y credenciales
-conn.ev.on('connection.update', (update) => {
-  const { connection, lastDisconnect } = update
-  if (connection === 'close') {
-    console.log(chalk.redBright('⚠ Conexión cerrada, reconectando...'))
-    // Aquí tu lógica para reconectar o limpiar
-  }
-  if (connection === 'open') {
-    console.log(chalk.green('✔ Bot conectado correctamente'))
-  }
-})
-
-conn.ev.on('creds.update', () => saveCreds())
-
-// Aquí puedes incorporar tu lógica para limpieza de sesiones, archivos temporales, recarga dinámica, etc.
-// ... (agrega tus funciones purgeSession, purgeOldFiles, clearTmp, etc. debajo)
-
-// Ejemplo de función clearTmp para limpiar tmp cada cierto tiempo
-  const tmpDir = join(__dirname, 'tmp')
-  if (!existsSync(tmpDir)) return
-  const filenames = readdirSync(tmpDir)
-  for (const file of filenames) {
-    try {
-      unlinkSync(join(tmpDir, file))
-    } catch (e) {
-      console.error('Error borrando tmp:', e)
-    }
-  }
-}
-
-// Ejecuta limpieza tmp cada 4 minutos (personaliza como necesites)
-setInterval(async () => {
-  await clearTmp()
-  console.log(chalk.cyan('Archivos temporales limpiados'))
-}, 1000 * 60 * 4)
-
-// Agrega aquí tus demás funciones auxiliares y calls a setInterval según veas en tu código original
-
-// Puedes exportar global.conn o definiciones adicionales para otros módulos si los usas
+});
 
 if (!fs.existsSync(`./${sessions}/creds.json`)) {
 if (opcion === '2' || methodCode) {
@@ -306,6 +252,7 @@ console.log(chalk.bold.redBright(`\n⚠︎！ RAZON DE DESCONEXIÓN DESCONOCIDA:
 process.on('uncaughtException', console.error)
 
 let isInit = true;
+let handler = await import('./handler.js')
 global.reloadHandler = async function(restatConn) {
 try {
 const Handler = await import(`./handler.js?update=${Date.now()}`).catch(console.error);
@@ -440,15 +387,13 @@ const s = global.support = {ffmpeg, ffprobe, ffmpegWebp, convert, magick, gm, fi
 Object.freeze(global.support);
 }
 
-async function clearTmp() {
-  const tmpDir = join(__dirname, 'tmp')
-  const filenames = readdirSync(tmpDir)
-  filenames.forEach(file => {
-    const filePath = join(tmpDir, file)
-    unlinkSync(filePath)
-  })
-}  // <-- esta llave cierra correctamente la función clearTmp
-
+function clearTmp() {
+const tmpDir = join(__dirname, 'tmp')
+const filenames = readdirSync(tmpDir)
+filenames.forEach(file => {
+const filePath = join(tmpDir, file)
+unlinkSync(filePath)})
+}
 
 function purgeSession() {
 let prekey = []
