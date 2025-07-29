@@ -9,39 +9,32 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 const handler = async (m, { conn }) => {
-  conn.hdr = conn.hdr || {}
-  if (m.sender in conn.hdr) {
-    return m.reply("✧ Aún hay procesos en el chat >//<")
-  }
-  conn.hdr[m.sender] = true
-
   try {
     const q = m.quoted || m
     const mime = (q.msg || q).mimetype || q.mediaType || ""
 
     if (!/^image\/(jpe?g|png)$/.test(mime)) {
-      delete conn.hdr[m.sender]
       return m.reply('🪐 Responde a una imagen JPG o PNG.')
     }
 
-    await conn.sendMessage(m.chat, { text: `⏳ Mejorando la calidad de tu imagen, espera un momento...` }, { quoted: m })
+    await conn.sendMessage(m.chat, { text: `⏳ Mejorando Su Imagen Espere Un Momento.\n> ${dev}` }, { quoted: m })
 
     const buffer = await q.download()
     const image = await Jimp.read(buffer)
     image.resize(800, Jimp.AUTO)
+
     const tmp = path.join(__dirname, `tmp_${Date.now()}.jpg`)
     await image.writeAsync(tmp)
 
-    // Lógica de mejora usando Vyro.AI
-    const enhancedBuffer = await enhanceWithVyro(fs.readFileSync(tmp))
-    await fs.promises.unlink(tmp)
+    const pene = await uploadToUguu(tmp)
+    if (!pene) throw new Error('Lo Sentimos La Api Fue Un Fracaso Total, Bueno Todas son asi😿')
 
-    await conn.sendFile(m.chat, enhancedBuffer, 'hd.jpg', '', m)
+    const enhanced = await upscaleImage(pene)
+    await conn.sendFile(m.chat, enhanced, 'hd.jpg', '', m)
     await conn.sendMessage(m.chat, { text: "✅ Imagen mejorada." }, { quoted: m })
+
   } catch (err) {
     conn.reply(m.chat, `*Error:* ${err.message}\n > 🕊️.`, m)
-  } finally {
-    delete conn.hdr[m.sender]
   }
 }
 
@@ -51,31 +44,28 @@ handler.command = ['hd', 'remini', 'upscale']
 
 export default handler
 
-async function enhanceWithVyro(imgBuffer) {
-  return new Promise((resolve, reject) => {
-    const form = new FormData()
-    form.append("model_version", 1)
-    form.append("image", imgBuffer, {
-      filename: "enhance_image_body.jpg",
-      contentType: "image/jpeg"
+async function uploadToUguu(filePath) {
+  const form = new FormData()
+  form.append("files[]", fs.createReadStream(filePath))
+
+  try {
+    const res = await fetch("https://uguu.se/upload.php", {
+      method: "POST",
+      headers: form.getHeaders(),
+      body: form
     })
 
-    form.submit({
-      url: "https://inferenceengine.vyro.ai/enhance",
-      host: "inferenceengine.vyro.ai",
-      path: "/enhance",
-      protocol: "https:",
-      headers: {
-        "User-Agent": "okhttp/4.9.3",
-        Connection: "Keep-Alive",
-        "Accept-Encoding": "gzip",
-      }
-    }, (err, res) => {
-      if (err) return reject(new Error("Error en la API Vyro."))
-      const data = []
-      res.on("data", chunk => data.push(chunk))
-      res.on("end", () => resolve(Buffer.concat(data)))
-      res.on("error", reject)
-    })
-  })
+    const json = await res.json()
+    await fs.promises.unlink(filePath)
+    return json.files?.[0]?.url
+  } catch {
+    await fs.promises.unlink(filePath)
+    return null
+  }
+}
+
+async function upscaleImage(url) {
+  const res = await fetch(`https://api.siputzx.my.id/api/iloveimg/upscale?image=${encodeURIComponent(url)}`)
+  if (!res.ok) throw new Error("No se pudo mejorar la imagen.")
+  return await res.buffer()
 }
