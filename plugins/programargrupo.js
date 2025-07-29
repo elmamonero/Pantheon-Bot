@@ -50,7 +50,6 @@ function parsearHora(textoHora, zona) {
   if (ampm === "pm" && h < 12) h += 12;
   if (ampm === "am" && h === 12) h = 0;
 
-  // Retorna objeto moment con la hora y minuto, en la zona indicada, para HOY
   return moment.tz({
     hour: h,
     minute: m,
@@ -96,36 +95,26 @@ async function verificarYAplicar(bot) {
       const cerrado = metadata.announce; // true si grupo en modo anuncio (cerrado)
 
       // Lógica para saber si hay que abrir o cerrar:
-
-      // Caso solo abrirHora configurado:
       if (abrirMom && !cerrarMom) {
         if (ahora.isSameOrAfter(abrirMom) && cerrado) {
           await setGrupoEstado(bot, chatId, true);
         } else if (ahora.isBefore(abrirMom) && !cerrado) {
           await setGrupoEstado(bot, chatId, false);
         }
-      }
-
-      // Caso solo cerrarHora configurado:
-      else if (!abrirMom && cerrarMom) {
+      } else if (!abrirMom && cerrarMom) {
         if (ahora.isSameOrAfter(cerrarMom) && !cerrado) {
           await setGrupoEstado(bot, chatId, false);
         } else if (ahora.isBefore(cerrarMom) && cerrado) {
           await setGrupoEstado(bot, chatId, true);
         }
-      }
-
-      // Caso ambos configurados:
-      else if (abrirMom && cerrarMom) {
+      } else if (abrirMom && cerrarMom) {
         if (abrirMom.isBefore(cerrarMom)) {
-          // Abrir entre abrirHora y cerrarHora
           if (ahora.isBetween(abrirMom, cerrarMom, null, '[)') && cerrado) {
             await setGrupoEstado(bot, chatId, true);
-          } else if ((!ahora.isBetween(abrirMom, cerrarMom, null, '[)')) && !cerrado) {
+          } else if (!ahora.isBetween(abrirMom, cerrarMom, null, '[)') && !cerrado) {
             await setGrupoEstado(bot, chatId, false);
           }
         } else {
-          // Caso horario que cruza medianoche (ej abrir 22:00, cerrar 06:00)
           if (ahora.isAfter(abrirMom) || ahora.isBefore(cerrarMom)) {
             if (cerrado) await setGrupoEstado(bot, chatId, true);
           } else {
@@ -139,23 +128,29 @@ async function verificarYAplicar(bot) {
   }
 }
 
-// Handler del comando programargrupo
+// Handler del comando .programargrupo
 const handler = async (msg, { conn, args }) => {
   const chatId = msg.key.remoteJid;
-  if (!chatId.endsWith("@g.us")) return;
+  if (!chatId.endsWith("@g.us")) {
+    await conn.sendMessage(chatId, { text: "❌ Este comando solo funciona en grupos." }, { quoted: msg });
+    return;
+  }
 
   const metadata = await conn.groupMetadata(chatId);
   const sender = msg.key.participant || msg.key.remoteJid;
   const participant = metadata.participants.find(p => p.id === sender);
   const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
 
-  if (!isAdmin)
-    return await conn.sendMessage(chatId, { text: "❌ Solo los administradores pueden usar este comando." }, { quoted: msg });
+  if (!isAdmin) {
+    await conn.sendMessage(chatId, { text: "❌ Solo los administradores pueden usar este comando." }, { quoted: msg });
+    return;
+  }
 
-  if (args.length === 0)
-    return await conn.sendMessage(chatId, {
-      text: `🌅 *Programación de grupo*\n\n*Uso correcto:*\n» .programargrupo abrir 8:00 am cerrar 10:30 pm\n» .programargrupo zona America/Mexico_City\n\n*Ejemplos:*\n• .programargrupo abrir 7:45 am\n• .programargrupo cerrar 11:15 pm\n• .programargrupo abrir 8:30 am cerrar 10:00 pm\n• .programargrupo zona America/Bogota\n\n⏰ *Puedes usar hora y minutos, y am/pm, y zonas soportadas: México, Bogota, Lima, Argentina`
-    }, { quoted: msg });
+  if (args.length === 0) {
+    const respuesta = `🌅 *Programación de grupo*\n\n*Uso correcto:*\n» .programargrupo abrir 8:00 am cerrar 10:30 pm\n» .programargrupo zona México/Bogota/Lima/Argentina\n\n*Ejemplos:*\n• .programargrupo abrir 7:45 am\n• .programargrupo cerrar 11:15 pm\n• .programargrupo abrir 8:30 am cerrar 10:00 pm\n• .programargrupo zona bogota\n\n⏰ Puedes usar hora con minutos y am/pm, y zonas soportadas: México, Bogota, Lima, Argentina.`;
+    await conn.sendMessage(chatId, { text: respuesta }, { quoted: msg });
+    return;
+  }
 
   let abrirHora = null;
   let cerrarHora = null;
@@ -179,38 +174,39 @@ const handler = async (msg, { conn, args }) => {
         i++;
       }
     } else if (arg === "zona" && i + 1 < args.length) {
-      zona = args[i + 1];
+      zona = args[i + 1].toLowerCase();
       i++;
-      if (!zonasValidas[zona.toLowerCase()]) {
-        await conn.sendMessage(chatId, { text: `❌ Zona no válida. Zonas soportadas: México, Bogota, Lima, Argentina.` }, { quoted: msg });
+      if (!zonasValidas[zona]) {
+        await conn.sendMessage(chatId, {
+          text: `❌ Zona no válida. Zonas soportadas: México, Bogota, Lima, Argentina.`
+        }, { quoted: msg });
         return;
       }
+    } else {
+      await conn.sendMessage(chatId, { text: `❌ Argumento no reconocido: ${args[i]}` }, { quoted: msg });
+      return;
     }
   }
 
-  // Leer configuración existente
   const config = leerConfig();
   if (!config[chatId]) config[chatId] = {};
 
   if (abrirHora) config[chatId].abrirHora = abrirHora;
   if (cerrarHora) config[chatId].cerrarHora = cerrarHora;
   if (zona) config[chatId].zona = zona;
-  else if (!config[chatId].zona) config[chatId].zona = "Mexico"; // default
+  else if (!config[chatId].zona) config[chatId].zona = "mexico"; // valor default
 
   guardarConfig(config);
 
-  // Enviar confirmación
   await conn.sendMessage(chatId, {
     text: `✅ Programación actualizada para este grupo:
 Abrir: ${config[chatId].abrirHora || "No configurado"}
 Cerrar: ${config[chatId].cerrarHora || "No configurado"}
-Zona: ${config[chatId].zona}
-  
+Zona: ${config[chatId].zona.charAt(0).toUpperCase() + config[chatId].zona.slice(1)}
+
 ⏰ El bot abrirá y cerrará el grupo automáticamente según esta configuración.`
   }, { quoted: msg });
 };
 
-// Exportar handler y la función que debe invocar el bot periódicamente
 export { handler, verificarYAplicar };
-
 export default handler;
