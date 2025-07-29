@@ -129,12 +129,23 @@ async function verificarYAplicar(bot) {
 }
 
 // Handler del comando .programargrupo
-const handler = async (msg, { conn, args }) => {
+const handler = async (msg, { conn }) => {
   const chatId = msg.key.remoteJid;
   if (!chatId.endsWith("@g.us")) {
     await conn.sendMessage(chatId, { text: "❌ Este comando solo funciona en grupos." }, { quoted: msg });
     return;
   }
+
+  // Obtener texto del mensaje (puede variar según estructura, ajusta si usas otro framework)
+  const messageContent = (msg.message?.conversation) || 
+                         (msg.message?.extendedTextMessage?.text) || "";
+
+  // Verificar que el mensaje comience con ".programargrupo"
+  if (!messageContent.toLowerCase().startsWith(".programargrupo")) return;
+
+  // Extraer argumentos: todo lo que sigue al comando
+  const argsText = messageContent.slice(".programargrupo".length).trim();
+  const args = argsText.length > 0 ? argsText.split(/\s+/) : [];
 
   const metadata = await conn.groupMetadata(chatId);
   const sender = msg.key.participant || msg.key.remoteJid;
