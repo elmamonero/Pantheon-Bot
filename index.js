@@ -441,12 +441,15 @@ const s = global.support = {ffmpeg, ffprobe, ffmpegWebp, convert, magick, gm, fi
 Object.freeze(global.support);
 }
 
-const tmpDir = join(__dirname, 'tmp')
-const filenames = readdirSync(tmpDir)
-filenames.forEach(file => {
-const filePath = join(tmpDir, file)
-unlinkSync(filePath)})
-}
+async function clearTmp() {
+  const tmpDir = join(__dirname, 'tmp')
+  const filenames = readdirSync(tmpDir)
+  filenames.forEach(file => {
+    const filePath = join(tmpDir, file)
+    unlinkSync(filePath)
+  })
+}  // <-- esta llave cierra correctamente la función clearTmp
+
 
 function purgeSession() {
 let prekey = []
