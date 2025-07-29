@@ -3,10 +3,25 @@ import fs from 'fs';
 import path from 'path';
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
-const TEMP_DIR = '/tmp'; // Cambia si usas otro SO
+const TEMP_DIR = '/tmp'; // Cambia según tu entorno
 
-const isValidYouTubeUrl = (url) =>
-  /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/.test(url);
+// Extrae y limpia URL de YouTube para evitar parámetros que rompan la API
+function extractYouTubeUrl(url) {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes('youtu.be')) {
+      // URL corta tipo youtu.be/ID
+      return `https://youtu.be/${urlObj.pathname.slice(1)}`;
+    } else if (urlObj.hostname.includes('youtube.com')) {
+      const v = urlObj.searchParams.get('v');
+      if (!v) return null;
+      return `https://youtube.com/watch?v=${v}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 const cleanFileName = (name) =>
   name.replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
@@ -47,14 +62,14 @@ let handler = async (m, { conn, args }) => {
     return m.reply('Por favor, proporciona una URL de YouTube.');
   }
 
-  // Limpieza básica URL para evitar parámetros problemáticos
-  let url = args[0].split('?')[0];
-  console.log(`URL proporcionada para descarga: ${url}`);
-
-  if (!isValidYouTubeUrl(url)) {
-    console.log('URL inválida detectada.');
-    return m.reply('⚠️ URL inválida de YouTube.');
+  const rawUrl = args[0];
+  const url = extractYouTubeUrl(rawUrl);
+  if (!url) {
+    console.log('URL inválida o sin ID de video.');
+    return m.reply('⚠️ URL inválida o sin ID de video.');
   }
+
+  console.log(`URL limpia para descargar: ${url}`);
 
   const API_KEY = 'sylphy-eab7';
   const apiEndpoint = `https://api.sylphy.xyz/download/ytmp4?url=${encodeURIComponent(url)}&apikey=${API_KEY}`;
@@ -72,26 +87,26 @@ let handler = async (m, { conn, args }) => {
       }
     });
 
-    console.log('Respuesta de la API Sylphy:', JSON.stringify(data, null, 2));
+    console.log('Respuesta API Sylphy:', JSON.stringify(data, null, 2));
 
-    if (!data || !data.result) {
+    if (!data || !data.status || !data.res) {
       await m.react('✖️');
-      console.log('No se recibió la propiedad "result" en la respuesta.');
-      return m.reply('⚠️ No se pudo obtener información del video. Intenta de nuevo más tarde.');
+      console.log('No se recibió la propiedad "res" en la respuesta o status es falso.');
+      return m.reply('⚠️ No se pudo obtener información válida del video. Intenta de nuevo más tarde.');
     }
 
-    const videoInfo = data.result;
-    const title = videoInfo.title || 'video';
+    const videoInfo = data.res;
     const videoUrl = videoInfo.url;
+    const title = videoInfo.title || 'video';
     const thumbnail = videoInfo.thumbnail || null;
 
     console.log(`Título del video: ${title}`);
     console.log(`URL para descarga directa: ${videoUrl}`);
 
-    if (!videoUrl) {
+    if (!videoUrl || videoUrl.includes('undefined')) {
       await m.react('✖️');
-      console.log('No se encontró URL para descargar el video en la respuesta.');
-      return m.reply('⚠️ No se encontró URL para descargar el video.');
+      console.log('URL de descarga inválida o indefinida.');
+      return m.reply('⚠️ No se encontró URL válida para descargar el video.');
     }
 
     const fileName = cleanFileName(`${title}.mp4`);
