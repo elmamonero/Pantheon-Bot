@@ -15,20 +15,22 @@ let handler = async (m, { conn, usedPrefix, command, text }) => {
     let res = await axios.get(url, { responseType: 'arraybuffer' })
 
     let contentType = res.headers['content-type']
-    if (!contentType || !contentType.startsWith('video/')) throw new Error('Error en la API.')
+
+    // A veces la API puede devolver 'image/webp' para stickers, aceptamos ese caso también
+    if (
+      !contentType || 
+      (!contentType.startsWith('video/') && !contentType.startsWith('image/'))
+    ) throw new Error('Error en la API: tipo de contenido inesperado.')
 
     let bratSticker = await sticker(res.data, null, global.packname, global.author)
 
     await conn.sendMessage(m.chat, { sticker: bratSticker }, { quoted: m })
     m.react('✅')
+
   } catch (err) {
-    if (err.response && err.response.status === 404) {
-      m.react('✖️')
-      m.reply('❌ Error 404: No se encontró el recurso solicitado en la API.')
-    } else {
-      m.react('✖️')
-      m.reply(`✖️ Error: ${err.message}`)
-    }
+    m.react('✖️')
+    // Puedes agregar más detalles aquí si la respuesta tiene data para depurar
+    m.reply(`✖️ Error en la API o fallo al generar el sticker.\n${err.message}`)
   }
 }
 
