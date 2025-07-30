@@ -412,10 +412,10 @@ global.db.data.users[m.sender].spam = new Date * 1
                     fail('private', m, this)
                     continue
 }
-              if (plugin.register == true && _user.registered == true) { 
-              fail('unreg', m, this)
-            continue
-           }
+             // if (plugin.register == true && _user.registered == true) { 
+             // fail('unreg', m, this)
+           // continue
+          // }
              m.isCommand = true
                 let xp = 'exp' in plugin ? parseInt(plugin.exp) : 17 
                 if (xp > 200)
