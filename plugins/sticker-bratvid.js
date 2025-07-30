@@ -11,8 +11,9 @@ let handler = async (m, { conn, usedPrefix, command, text }) => {
   m.react('⏳')
 
   try {
-    let url = `https://api.nekorinn.my.id/maker/bratvid?text=${encodeURIComponent(text)}`
+    let url = `https://api.nekorinn.my.id/maker/brat-v2?text=${encodeURIComponent(text)}`
     let res = await axios.get(url, { responseType: 'arraybuffer' })
+
     let contentType = res.headers['content-type']
     if (!contentType || !contentType.startsWith('video/')) throw new Error('Error en la API.')
 
@@ -21,9 +22,13 @@ let handler = async (m, { conn, usedPrefix, command, text }) => {
     await conn.sendMessage(m.chat, { sticker: bratSticker }, { quoted: m })
     m.react('✅')
   } catch (err) {
-    console.error(err)
-    m.react('✖️')
-    m.reply(`✖️ Error: ${err.message}`)
+    if (err.response && err.response.status === 404) {
+      m.react('✖️')
+      m.reply('❌ Error 404: No se encontró el recurso solicitado en la API.')
+    } else {
+      m.react('✖️')
+      m.reply(`✖️ Error: ${err.message}`)
+    }
   }
 }
 
