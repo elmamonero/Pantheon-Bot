@@ -414,7 +414,7 @@ global.db.data.users[m.sender].spam = new Date * 1
 }
              // if (plugin.register == true && _user.registered == true) { 
              // fail('unreg', m, this)
-           // continue
+          //  continue
           // }
              m.isCommand = true
                 let xp = 'exp' in plugin ? parseInt(plugin.exp) : 17 
