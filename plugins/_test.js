@@ -4,15 +4,17 @@ import { FormData, Blob } from "formdata-node";
 import { fileTypeFromBuffer } from "file-type";
 
 const handler = async (m, { conn }) => {
-let q = m.quoted ? m.quoted : m;
+  let q = m.quoted ? m.quoted : m;
   let mime = (q.msg || q).mimetype || "";
-  if (!mime) return m.reply("No media found", null, { quoted: fkontak });
+  if (!mime) return m.reply("No media found");
+  
   let media = await q.download();
-let link = await catbox(media);
+  let link = await sunflareUpload(media);
+  
   let caption = `📮 *L I N K :*
- \`\`\`• ${link}\`\`\`
+\`\`\`• ${link}\`\`\`
 📊 *S I Z E :* ${formatBytes(media.length)}
-📛 *E x p i r e d :* "No Expiry Date" 
+📛 *E x p i r e d :* No Expiry Date
 `;
 
   await m.reply(caption);
@@ -32,29 +34,21 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`;
 }
 
-
 /**
- * Upload image to catbox
- * Supported mimetype:
- * - `image/jpeg`
- * - `image/jpg`
- * - `image/png`s
- * - `image/webp`
- * - `video/mp4`
- * - `video/gif`
- * - `audio/mpeg`
- * - `audio/opus`
- * - `audio/mpa`
- * @param {Buffer} buffer Image Buffer
- * @return {Promise<string>}
+ * Upload file to sunflare CDN
+ * Supported mimetype same as before
+ * @param {Buffer} content File buffer
+ * @returns {Promise<string>} URL string
  */
-async function catbox(content) {
-  const { ext, mime } = (await fileTypeFromBuffer(content)) || {};
-  const blob = new Blob([content.toArrayBuffer()], { type: mime });
+async function sunflareUpload(content) {
+  const { ext, mime } = (await fileTypeFromBuffer(content)) || { ext: "bin", mime: "application/octet-stream" };
+
+  // Create blob from buffer
+  const blob = new Blob([content], { type: mime });
   const formData = new FormData();
   const randomBytes = crypto.randomBytes(5).toString("hex");
   formData.append("reqtype", "fileupload");
-  formData.append("fileToUpload", blob, randomBytes + "." + ext);
+  formData.append("fileToUpload", blob, `${randomBytes}.${ext}`);
 
   const response = await fetch("https://cdn-sunflareteam.vercel.app/", {
     method: "POST",
@@ -65,5 +59,10 @@ async function catbox(content) {
     },
   });
 
-  return await response.text();
+  if (!response.ok) throw new Error(`Upload failed with status ${response.status}`);
+
+  const text = await response.text();
+
+  // Sunflare presumably returns URL directly as plain text, if no JSON response
+  return text.trim();
 }
