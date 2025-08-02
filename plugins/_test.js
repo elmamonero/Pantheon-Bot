@@ -14,15 +14,21 @@ const handler = async (m, { conn }) => {
     let media = await q.download();
     if (!media || media.length === 0) return m.reply("Failed to download media");
 
-    // Sube el archivo a Sunflare
-    let link = await sunflareUpload(media);
+    // Detecta tipo MIME/archivo
+    const info = await fileTypeFromBuffer(media);
+    const imgExts = ["jpg", "jpeg", "png", "webp"];
+    if (!info || !imgExts.includes(info.ext)) {
+      return m.reply("Solo puedes subir fotos (formatos permitidos: jpg, jpeg, png, webp).");
+    }
 
-    // Prepara mensaje con link y tamaño formateado
+    // Sube el archivo (ajusta la URL a la correcta si la consigues)
+    let link = await sunflareUpload(media, info.mime, info.ext);
+
+    // Prepara mensaje
     let caption = `📮 *L I N K :*\n\`\`\`• ${link}\`\`\`\n` +
                   `📊 *S I Z E :* ${formatBytes(media.length)}\n` +
                   `📛 *E x p i r e d :* No Expiry Date`;
 
-    // Envía el mensaje
     await m.reply(caption);
   } catch (e) {
     console.error(e);
@@ -42,29 +48,22 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`;
 }
 
-/**
- * Sube el archivo a Sunflare (https://cdn-sunflareteam.vercel.app/)
- * @param {Buffer} content Buffer del archivo
- * @returns {Promise<string>} URL devuelto por el servidor
- */
-async function sunflareUpload(content) {
-  const { ext, mime } = (await fileTypeFromBuffer(content)) || { ext: "bin", mime: "application/octet-stream" };
-  
-  // Crear un Blob a partir del buffer y MIME type
+async function sunflareUpload(content, mime, ext) {
+  // ¡IMPORTANTE! Debes poner aquí la URL real que el servicio de Sunflare usa para subir imágenes
+  const UPLOAD_URL = "https://cdn-sunflareteam.vercel.app/"; // O AJUSTA según corresponda
+
   const blob = new Blob([content], { type: mime });
   const formData = new FormData();
   const randomName = crypto.randomBytes(5).toString("hex");
-
+  
   formData.append("reqtype", "fileupload");
   formData.append("fileToUpload", blob, `${randomName}.${ext}`);
 
-  const response = await fetch("https://cdn-sunflareteam.vercel.app/", {
+  const response = await fetch(UPLOAD_URL, {
     method: "POST",
     body: formData,
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
-      // No se especifica content-type porque fetch lo pone automáticamente con FormData
+      "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
     },
   });
 
