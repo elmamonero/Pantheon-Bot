@@ -4,55 +4,66 @@ import { FormData, Blob } from "formdata-node";
 import { fileTypeFromBuffer } from "file-type";
 
 const handler = async (m, { conn }) => {
-  let q = m.quoted ? m.quoted : m;
+let q = m.quoted ? m.quoted : m;
   let mime = (q.msg || q).mimetype || "";
-  if (!mime) return m.reply("No media found");
-
+  if (!mime) return m.reply("No media found", null, { quoted: fkontak });
   let media = await q.download();
-  if (!media || media.length === 0) return m.reply("No se pudo descargar la imagen.");
+let link = await catbox(media);
+  let caption = `📮 *L I N K :*
+ \`\`\`• ${link}\`\`\`
+📊 *S I Z E :* ${formatBytes(media.length)}
+📛 *E x p i r e d :* "No Expiry Date" 
+`;
 
-  // Solo JPG
-  const { ext, mime: realMime } = (await fileTypeFromBuffer(media)) || {};
-  if (ext !== "jpg" && ext !== "jpeg") {
-    return m.reply("Solo se admiten imágenes JPG.");
-  }
+  await m.reply(caption);
+}
+handler.command = handler.help = ['tourl']
+handler.tags = ['herramientas']
+handler.register = true
+export default handler
 
-  try {
-    const blob = new Blob([media], { type: realMime });
-    const formData = new FormData();
-    const randomName = crypto.randomBytes(5).toString("hex");
-    formData.append("reqtype", "fileupload");
-    formData.append("fileToUpload", blob, `${randomName}.${ext}`);
-
-    const response = await fetch("https://cdn-sunflareteam.vercel.app/", {
-      method: "POST",
-      body: formData,
-      headers: {
-        "User-Agent": "Mozilla/5.0"
-      }
-    });
-
-    if (!response.ok) return m.reply(`Error: Upload failed with status ${response.status}`);
-
-    const url = (await response.text()).trim();
-    let caption = `📮 *L I N K :*\n\`\`\`• ${url}\`\`\`\n` +
-                  `📊 *S I Z E :* ${formatBytes(media.length)}\n` +
-                  `📛 *E x p i r e d :* No Expiry Date`;
-
-    await m.reply(caption);
-  } catch (e) {
-    await m.reply("Error subiendo: " + (e.message || e));
-  }
-};
-
-handler.command = handler.help = ["tourltest"];
-handler.tags = ["herramientas"];
-handler.register = true;
-export default handler;
 
 function formatBytes(bytes) {
-  if (bytes === 0) return "0 B";
+  if (bytes === 0) {
+    return "0 B";
+  }
   const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
   return `${(bytes / 1024 ** i).toFixed(2)} ${sizes[i]}`;
+}
+
+
+/**
+ * Upload image to catbox
+ * Supported mimetype:
+ * - `image/jpeg`
+ * - `image/jpg`
+ * - `image/png`s
+ * - `image/webp`
+ * - `video/mp4`
+ * - `video/gif`
+ * - `audio/mpeg`
+ * - `audio/opus`
+ * - `audio/mpa`
+ * @param {Buffer} buffer Image Buffer
+ * @return {Promise<string>}
+ */
+async function catbox(content) {
+  const { ext, mime } = (await fileTypeFromBuffer(content)) || {};
+  const blob = new Blob([content.toArrayBuffer()], { type: mime });
+  const formData = new FormData();
+  const randomBytes = crypto.randomBytes(5).toString("hex");
+  formData.append("reqtype", "fileupload");
+  formData.append("fileToUpload", blob, randomBytes + "." + ext);
+
+  const response = await fetch("https://cdn-sunflareteam.vercel.app", {
+    method: "POST",
+    body: formData,
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36",
+    },
+  });
+
+  return await response.text();
 }
