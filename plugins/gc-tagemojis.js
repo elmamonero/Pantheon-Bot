@@ -1,61 +1,13 @@
-import fs from 'fs';
-import path from 'path';
+export async function tagemojis(m, { conn }) {
+  if (!m.isGroup)
+    return await conn.sendMessage(m.chat, { text: "❌ Este comando solo funciona en grupos." }, { quoted: m });
 
-const emojiFile = path.resolve('./emojigrupo.json'); // Archivo JSON donde guardamos emojis por grupo
+  const mensaje = "✅ Emojis aleatorios configurados exitosamente.\n🎯 Se usarán en el próximo .todos";
 
-// Lista amplia de emojis para elegir
-const emojisTag = [
-  '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😉','😍','🥰','😘','😗','😙','😚','😋','😜','🤪',
-  '😝','🤑','🤗','🤭','🤫','🤔','🤐','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴',
-  '😷','🤒','🤕','🤢','🤮','🥵','🥶','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','☹️',
-  '😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩',
-  '😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','🤡','👹','👺','👻','👽','👾','🤖','💩',
-  '👋','🤚','🖐','✋','🖖','👌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️',
-  '👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏',
-];
-
-function leerArchivoEmojis() {
-  try {
-    if (!fs.existsSync(emojiFile)) return {};
-    const data = fs.readFileSync(emojiFile, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return {};
-  }
+  await conn.sendMessage(m.chat, { text: mensaje }, { quoted: m });
 }
 
-function guardarArchivoEmojis(data) {
-  fs.writeFileSync(emojiFile, JSON.stringify(data, null, 2));
-}
-
-function randomEmoji() {
-  return emojisTag[Math.floor(Math.random() * emojisTag.length)];
-}
-
-const tagemojisHandler = async (m, { conn }) => {
-  if (!m.isGroup) return await conn.sendMessage(m.chat, { text: "⚠️ Este comando solo funciona en grupos." }, { quoted: m });
-
-  const chatId = m.chat;
-  const emojiActual = randomEmoji();
-
-  const emojisGuardados = leerArchivoEmojis();
-
-  emojisGuardados[chatId] = emojiActual;
-
-  guardarArchivoEmojis(emojisGuardados);
-
-  await conn.sendMessage(
-    chatId,
-    {
-      text: `✅ Emojis actualizados aleatoriamente y se usarán en el próximo comando .todos\n\nEmoji asignado para este grupo: ${emojiActual}`
-    },
-    { quoted: m }
-  );
-};
-
-tagemojisHandler.help = ['tagemojis'];
-tagemojisHandler.tags = ['group'];
-tagemojisHandler.command = /^tagemojis$/i;
-tagemojisHandler.group = true;
-
-export default tagemojisHandler;
+tagemojis.command = /^tagemojis$/i;
+tagemojis.group = true;
+tagemojis.tags = ['group'];
+tagemojis.help = ['tagemojis'];
