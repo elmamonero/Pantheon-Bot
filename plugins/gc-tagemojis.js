@@ -84,6 +84,6 @@ const handler = async (msg, { conn }) => {
   );
 };
 
-handler.command = /^tagemojis$/i;
+// handler.command = /^tagemojis$/i;
 
 export default handler;
