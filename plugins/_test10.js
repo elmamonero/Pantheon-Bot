@@ -1,4 +1,3 @@
-import fs from "fs";
 import path from "path";
 
 const emojisPath = path.resolve("./emojigrupo.js");
@@ -13,14 +12,7 @@ async function leerEmojisGrupo() {
 }
 
 const handler = async (msg, { conn, args }) => {
-  const rawID = conn.user?.id || "";
-  const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
-  const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
-
   const chatId = msg.key.remoteJid;
-  const senderJid = msg.key.participant || msg.key.remoteJid;
-  const senderNum = senderJid.replace(/[^0-9]/g, "");
-  const senderTag = `@${senderNum}`;
 
   if (!chatId.endsWith("@g.us")) {
     return await conn.sendMessage(
@@ -34,40 +26,37 @@ const handler = async (msg, { conn, args }) => {
   const participants = metadata.participants;
   const memberCount = participants.length;
 
-  const participant = participants.find(p => p.id.includes(senderNum));
-  const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
-  const isBot = botNumber === senderNum;
+  const senderJid = msg.key.participant || msg.key.remoteJid;
+  const sender = metadata.participants.find(p => p.id === senderJid);
+  const isAdmin = sender?.admin === "admin" || sender?.admin === "superadmin";
 
-  if (!isAdmin && !isBot) {
+  if (!isAdmin) {
     return await conn.sendMessage(
       chatId,
-      {
-        text: "❌ Solo los administradores del grupo o el subbot pueden usar este comando."
-      },
+      { text: "❌ Solo los administradores pueden usar este comando." },
       { quoted: msg }
     );
   }
 
-  let datos = await leerEmojisGrupo();
-  const emojisGrupo = datos[chatId] || {};
+  const datos = await leerEmojisGrupo();
 
-  const mentionIds = participants.map((p) => p.id);
-  const extraMsg = args.join(" ");
-  const aviso =
-    extraMsg.trim().length > 0
-      ? `*AVISO:* ${extraMsg}`
+  const aviso = (args.join(" ").trim().length > 0) 
+      ? `*AVISO:* ${args.join(" ")}`
       : "*AVISO:* ¡Atención a todos!*";
 
   const mentionList = participants
     .map(p => {
-      const emoji = emojisGrupo[p.id] || "⚡"; // Emoji asignado a cada usuario o el por defecto
-      return `${emoji} ⇝ @${p.id.split("@")[0]}`;
+      const grp = datos[chatId] || { default: "⚡", users: {} };
+      const userEmoji = grp.users[p.id] || grp.default || "⚡";
+      return `${userEmoji} ⇝ @${p.id.split("@")[0]}`;
     })
     .join("\n");
 
+  const mentionIds = participants.map(p => p.id);
+
   const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
 ┃🔹 *PANTHEON BOT* ⚡
-┃👤 *Invocado por:* ${senderTag}
+┃👤 *Invocado por:* @${senderJid.split("@")[0]}
 ┃👥 *Miembros del grupo: ${memberCount}*
 ╰━━━━━━━⋆★⋆━━━━━━━⬣
 
@@ -82,7 +71,7 @@ ${mentionList}
     chatId,
     {
       text: finalMsg,
-      mentions: mentionIds,
+      mentions: mentionIds
     },
     { quoted: msg }
   );
