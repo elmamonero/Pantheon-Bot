@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const emojiFile = path.resolve('./emojigrupo.json');
+const emojiFile = path.resolve('./emojigrupo.js'); // Archivo .js
 
 const emojisTag = [
   '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😉','😍','🥰','😘','😗','😙','😚','😋','😜','🤪',
@@ -13,18 +13,20 @@ const emojisTag = [
   '👍','👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏',
 ];
 
-function leerArchivoEmojis() {
+// Leer archivo .js con import dinámico
+async function leerArchivoEmojis() {
   try {
-    if (!fs.existsSync(emojiFile)) return {};
-    const data = fs.readFileSync(emojiFile, 'utf-8');
-    return JSON.parse(data);
+    const datos = await import(emojiFile + "?update=" + Date.now());
+    return datos.default || {};
   } catch {
     return {};
   }
 }
 
+// Guardar archivo .js con export default
 function guardarArchivoEmojis(data) {
-  fs.writeFileSync(emojiFile, JSON.stringify(data, null, 2));
+  const contenido = "export default " + JSON.stringify(data, null, 2) + ";";
+  fs.writeFileSync(emojiFile, contenido, 'utf-8');
 }
 
 function randomEmoji() {
@@ -46,9 +48,8 @@ const tagemojisHandler = async (m, { conn }) => {
     return;
   }
 
-  const emojisGuardados = leerArchivoEmojis();
+  const emojisGuardados = await leerArchivoEmojis();
 
-  // Asegurarse que sea un objeto y no un string
   if (typeof emojisGuardados[chatId] !== 'object' || emojisGuardados[chatId] === null) {
     emojisGuardados[chatId] = {};
   }
