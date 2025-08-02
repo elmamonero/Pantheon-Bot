@@ -64,6 +64,8 @@ ${readMore}
 ⠞🛍️੭‎ ${usedPrefix}stock
 ⠞🛍️੭‎ ${usedPrefix}setcombos *texto*
 ⠞🛍️੭‎ ${usedPrefix}combos
+⠞🛍️੭‎ ${usedPrefix}setdiamantes *texto*
+⠞🛍️੭‎ ${usedPrefix}diamantes
 ⠞🛍️੭‎ ${usedPrefix}cambiar *texto*
 ⠞🛍️੭‎ ${usedPrefix}divisas
 
