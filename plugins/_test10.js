@@ -1,75 +1,93 @@
-const emojisTag = [
-  '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😉',
-  '😍','🥰','😘','😗','😙','😚','😋','😜','🤪','😝',
-  '🤑','🤗','🤭','🤫','🤔','🤐','😶','😏','😒','🙄',
-  '😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕',
-  '🤢','🤮','🥵','🥶','😵','🤯','🤠','🥳','😎','🤓',
-  '🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺',
-  '😦','😧','😨','😰','😥','😢','😭','😱','😖','😣',
-  '😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈',
-  '👿','💀','☠️','🤡','👹','👺','👻','👽','👾','🤖',
-  '💩','👋','🤚','🖐','✋','🖖','👌','🤏','✌️','🤞',
-  '🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍',
-  '👎','✊','👊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏',
-];
+import fs from "fs";
+import path from "path";
 
-// Función para obtener emoji aleatorio
-function randomEmoji() {
-  return emojisTag[Math.floor(Math.random() * emojisTag.length)];
+const emojisPath = path.resolve("./emojigrupo.js");
+
+async function leerEmojisGrupo() {
+  try {
+    const datos = await import(emojisPath + "?update=" + Date.now());
+    return datos.default || {};
+  } catch {
+    return {};
+  }
 }
 
-export async function todos4(m, { conn, args }) {
-  if (!m.isGroup)
-    return await conn.sendMessage(m.chat, { text: "❌ Este comando solo funciona en grupos." }, { quoted: m });
+const handler = async (msg, { conn, args }) => {
+  const rawID = conn.user?.id || "";
+  const subbotID = rawID.split(":")[0] + "@s.whatsapp.net";
+  const botNumber = rawID.split(":")[0].replace(/[^0-9]/g, "");
 
-  const senderNum = (m.sender || '').split('@')[0];
+  const chatId = msg.key.remoteJid;
+  const senderJid = msg.key.participant || msg.key.remoteJid;
+  const senderNum = senderJid.replace(/[^0-9]/g, "");
+  const senderTag = `@${senderNum}`;
 
-  const metadata = await conn.groupMetadata(m.chat);
-  const participants = metadata.participants;
-
-  const participant = participants.find(p => p.id.includes(senderNum));
-  const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
-  const botNumber = (conn.user?.id || '').split(":")[0].replace(/[^0-9]/g, "");
-  const isBot = senderNum === botNumber;
-
-  if (!isAdmin && !isBot) {
+  if (!chatId.endsWith("@g.us")) {
     return await conn.sendMessage(
-      m.chat,
-      { text: "❌ Solo administradores o el bot pueden usar este comando." },
-      { quoted: m }
+      chatId,
+      { text: "⚠️ *Este comando solo se puede usar en grupos.*" },
+      { quoted: msg }
     );
   }
 
+  const metadata = await conn.groupMetadata(chatId);
+  const participants = metadata.participants;
   const memberCount = participants.length;
-  const senderTag = `@${senderNum}`;
 
-  let aviso = args.length ? `*AVISO:* ${args.join(' ')}` : "*AVISO:* ¡Atención a todos!*";
+  const participant = participants.find(p => p.id.includes(senderNum));
+  const isAdmin = participant?.admin === "admin" || participant?.admin === "superadmin";
+  const isBot = botNumber === senderNum;
+
+  if (!isAdmin && !isBot) {
+    return await conn.sendMessage(
+      chatId,
+      {
+        text: "❌ Solo los administradores del grupo o el subbot pueden usar este comando."
+      },
+      { quoted: msg }
+    );
+  }
+
+  let datos = await leerEmojisGrupo();
+  const emojisGrupo = datos[chatId] || {};
+
+  const mentionIds = participants.map((p) => p.id);
+  const extraMsg = args.join(" ");
+  const aviso =
+    extraMsg.trim().length > 0
+      ? `*AVISO:* ${extraMsg}`
+      : "*AVISO:* ¡Atención a todos!*";
 
   const mentionList = participants
-    .map(p => `${randomEmoji()} @${p.id.split("@")[0]}`)
+    .map(p => {
+      const emoji = emojisGrupo[p.id] || "⚡"; // Emoji asignado a cada usuario o el por defecto
+      return `${emoji} ⇝ @${p.id.split("@")[0]}`;
+    })
     .join("\n");
 
-  const mentionIds = participants.map(p => p.id);
-
-  // Texto EXACTO que pusiste por ti, respetando saltos, símbolos y formato
-  const finalMsg = `╭━[ INVOCACIÓN MASIVA ]━⬣
-┃🔱 KILLUA-BOT ⚡
-┃👤 Invocado por: ${senderTag}
-┃👥 Miembros del grupo: ${memberCount}
+  const finalMsg = `╭━[ *INVOCACIÓN MASIVA* ]━⬣
+┃🔹 *PANTHEON BOT* ⚡
+┃👤 *Invocado por:* ${senderTag}
+┃👥 *Miembros del grupo: ${memberCount}*
 ╰━━━━━━━⋆★⋆━━━━━━━⬣
 
-┌──⭓ Mencionando a todos...
+${aviso}
+
+📲 *Etiquetando a todos los miembros...*
+
 ${mentionList}
-└───────⭓`;
+╰─[ *Pantheon Bot WhatsApp* ⚡ ]─`;
 
   await conn.sendMessage(
-    m.chat,
-    { text: finalMsg, mentions: mentionIds },
-    { quoted: m }
+    chatId,
+    {
+      text: finalMsg,
+      mentions: mentionIds,
+    },
+    { quoted: msg }
   );
-}
+};
 
-todos4.command = /^todos4$/i;
-todos4.group = true;
-todos4.tags = ['group'];
-todos4.help = ['todos4'];
+handler.command = /^(todos4)$/i;
+
+export default handler;
