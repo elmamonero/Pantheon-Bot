@@ -17,7 +17,7 @@ const handler = async (m, { conn }) => {
   await m.reply(caption);
 };
 
-handler.command = handler.help = ["tourltest"];
+handler.command = handler.help = ["tourltest5"];
 handler.tags = ["herramientas"];
 handler.register = true;
 export default handler;
