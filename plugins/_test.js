@@ -13,48 +13,46 @@ const handler = async (msg, { conn, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
 
-  // Para ejecutar con la imagen enviada directamente (no sólo con mensaje citado):
-  // Si el mensaje tiene media directo y no es texto, permitir procesar esa media.
-  // Si hay mensaje citado con media, usar ese.
-  let mediaMessage = null;
-  let typeDetected = null;
-
-  // Comprobar si mensaje citado con media
+  // Obtener mensaje citado si existe
   const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-  // Función local para detectar tipo y obtener mediaMessage
-  function detectMediaType(message) {
-    if (!message) return { type: null, media: null };
-    if (message.imageMessage) return { type: 'image', media: message.imageMessage };
-    if (message.videoMessage) return { type: 'video', media: message.videoMessage };
-    if (message.stickerMessage) return { type: 'sticker', media: message.stickerMessage };
-    if (message.audioMessage) return { type: 'audio', media: message.audioMessage };
+  // Función para detectar media dentro de un mensaje (con búsqueda profunda para casos anidados)
+  function detectMedia(message) {
+    if (!message || typeof message !== 'object') return { type: null, media: null };
+
+    const mediaTypes = ['imageMessage', 'videoMessage', 'stickerMessage', 'audioMessage'];
+
+    for (const type of mediaTypes) {
+      if (message[type]) return { type: type.replace('Message', '').toLowerCase(), media: message[type] };
+    }
+
+    // Explorar recursivamente si objeto tiene subobjetos (caso mensajes anidados)
+    for (const key in message) {
+      if (typeof message[key] === 'object') {
+        const result = detectMedia(message[key]);
+        if (result.type) return result;
+      }
+    }
     return { type: null, media: null };
   }
 
-  if (quoted) {
-    // Si hay mensaje citado, usarlo
-    ({ type: typeDetected, media: mediaMessage } = detectMediaType(quoted));
-  } else {
-    // Si no hay mensaje citado, intentar detectar media directo en mensaje principal
-    const messageContent = Object.values(msg.message || {}).find(
-      v =>
-        typeof v === 'object' &&
-        (v.imageMessage || v.videoMessage || v.stickerMessage || v.audioMessage)
-    );
+  let typeDetected, mediaMessage;
 
-    ({ type: typeDetected, media: mediaMessage } = detectMediaType(messageContent));
+  if (quoted) {
+    // Si hay mensaje citado, usar ese para detectar media
+    ({ type: typeDetected, media: mediaMessage } = detectMedia(quoted));
+  } else {
+    // Si no hay mensaje citado, intentar detectar media en el mensaje principal
+    ({ type: typeDetected, media: mediaMessage } = detectMedia(msg.message));
   }
 
   if (!mediaMessage || !typeDetected) {
-    return conn.sendMessage(chatId, {
+    return await conn.sendMessage(chatId, {
       text: `✳️ *Usa:*\n${pref}${command}\n📌 Responde o envía una imagen, video, sticker o audio para subirlo.`
     }, { quoted: msg });
   }
 
-  await conn.sendMessage(chatId, {
-    react: { text: '☁️', key: msg.key }
-  });
+  await conn.sendMessage(chatId, { react: { text: '☁️', key: msg.key } });
 
   try {
     const tmpDir = path.join(__dirname, 'tmp');
