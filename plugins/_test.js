@@ -13,11 +13,42 @@ const handler = async (msg, { conn, command }) => {
   const chatId = msg.key.remoteJid;
   const pref = global.prefixes?.[0] || ".";
 
+  // Para ejecutar con la imagen enviada directamente (no sólo con mensaje citado):
+  // Si el mensaje tiene media directo y no es texto, permitir procesar esa media.
+  // Si hay mensaje citado con media, usar ese.
+  let mediaMessage = null;
+  let typeDetected = null;
+
+  // Comprobar si mensaje citado con media
   const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-  if (!quoted) {
+  // Función local para detectar tipo y obtener mediaMessage
+  function detectMediaType(message) {
+    if (!message) return { type: null, media: null };
+    if (message.imageMessage) return { type: 'image', media: message.imageMessage };
+    if (message.videoMessage) return { type: 'video', media: message.videoMessage };
+    if (message.stickerMessage) return { type: 'sticker', media: message.stickerMessage };
+    if (message.audioMessage) return { type: 'audio', media: message.audioMessage };
+    return { type: null, media: null };
+  }
+
+  if (quoted) {
+    // Si hay mensaje citado, usarlo
+    ({ type: typeDetected, media: mediaMessage } = detectMediaType(quoted));
+  } else {
+    // Si no hay mensaje citado, intentar detectar media directo en mensaje principal
+    const messageContent = Object.values(msg.message || {}).find(
+      v =>
+        typeof v === 'object' &&
+        (v.imageMessage || v.videoMessage || v.stickerMessage || v.audioMessage)
+    );
+
+    ({ type: typeDetected, media: mediaMessage } = detectMediaType(messageContent));
+  }
+
+  if (!mediaMessage || !typeDetected) {
     return conn.sendMessage(chatId, {
-      text: `✳️ *Usa:*\n${pref}${command}\n📌 Responde a una imagen, video, sticker o audio para subirlo.`
+      text: `✳️ *Usa:*\n${pref}${command}\n📌 Responde o envía una imagen, video, sticker o audio para subirlo.`
     }, { quoted: msg });
   }
 
@@ -26,25 +57,6 @@ const handler = async (msg, { conn, command }) => {
   });
 
   try {
-    let typeDetected = null;
-    let mediaMessage = null;
-
-    if (quoted.imageMessage) {
-      typeDetected = 'image';
-      mediaMessage = quoted.imageMessage;
-    } else if (quoted.videoMessage) {
-      typeDetected = 'video';
-      mediaMessage = quoted.videoMessage;
-    } else if (quoted.stickerMessage) {
-      typeDetected = 'sticker';
-      mediaMessage = quoted.stickerMessage;
-    } else if (quoted.audioMessage) {
-      typeDetected = 'audio';
-      mediaMessage = quoted.audioMessage;
-    } else {
-      throw new Error("❌ Solo se permiten imágenes, videos, stickers o audios.");
-    }
-
     const tmpDir = path.join(__dirname, 'tmp');
     if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
