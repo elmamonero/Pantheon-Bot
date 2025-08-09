@@ -38,7 +38,7 @@ const handler = async (msg, { conn, command }) => {
       typeDetected = 'audio';
       mediaMessage = quoted.audioMessage;
     } else {
-      throw new Error("❌ Solo se permiten imágenes, videos, stickers o audios.");
+      throw new Error("❌ Solo se permiten imaágenes, videos, stickers o audios.");
     }
 
     const tmpDir = path.join(__dirname, 'tmp');
