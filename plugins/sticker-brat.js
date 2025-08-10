@@ -1,44 +1,57 @@
-import fetch from 'node-fetch';
+import { sticker } from '../lib/sticker.js'
+import axios from 'axios' 
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+const fetchSticker = async (text, attempt = 1) => {
+    try {
+        const response = await axios.get(`https://api.hanggts.xyz/imagecreator/brat`, {
+            params: { text },
+            responseType: 'arraybuffer',
+        })
+        return response.data
+    } catch (error) {
+        if (error.response?.status === 429 && attempt <= 3) {
+            const retryAfter = error.response.headers['retry-after'] || 5
+            await delay(retryAfter * 1000)
+            return fetchSticker(text, attempt + 1)
+        }
+        throw error
+    }
+}
 
 let handler = async (m, { conn, text }) => {
-  if (!text) return conn.reply(m.chat, '⚠️ Por favor, ingresa un texto para crear el sticker.', m);
+    if (m.quoted && m.quoted.text) {
+        text = m.quoted.text
+    } else if (!text) {
+        return conn.sendMessage(m.chat, {
+            text: `✨️ Por favor, responde a un mensaje o ingresa un texto para crear el Sticker.`,
+        }, { quoted: m })
+    }
 
-  try {
-    await m.react('🕒');
+    try {
+        const buffer = await fetchSticker(text)
+        let userId = m.sender
+        let packstickers = global.db.data.users[userId] || {}
+        let texto1 = packstickers.text1 || global.packsticker
+        let texto2 = packstickers.text2 || global.packsticker2
 
-    const url = `https://api.nekorinn.my.id/maker/brat-v2?text=${encodeURIComponent(text)}`;
-    const res = await fetch(url);
+        let stiker = await sticker(buffer, false, texto1, texto2)
 
-    if (!res.ok) throw new Error('No se pudo descargar el sticker.');
+        if (stiker) {
+            return conn.sendFile(m.chat, stiker, 'sticker.webp', '', m)
+        } else {
+            throw new Error("✧ No se pudo generar el sticker.")
+        }
+    } catch (error) {
+        return conn.sendMessage(m.chat, {
+            text: `⚠️ Ocurrió un error: ${error.message}`,
+        }, { quoted: m })
+    }
+}
 
-    const buffer = await res.buffer();
+handler.command = ['brat']
+handler.tags = ['sticker']
+handler.help = ['brat *<texto>*']
 
-    // Validar longitud mínima del buffer para evitar archivos vacíos
-    if (buffer.length < 1000) throw new Error('Archivo recibido muy pequeño o corrupto.');
-
-    // Enviar el sticker visual
-    await conn.sendMessage(m.chat, {
-      sticker: buffer
-    }, { quoted: m });
-
-    // También enviar como documento para descarga
-    await conn.sendMessage(m.chat, {
-      document: buffer,
-      fileName: `${text}.webp`,
-      mimetype: 'image/webp',
-      caption: 'Sticker en formato descargable'
-    }, { quoted: m });
-
-    await m.react('✅');
-  } catch (e) {
-    console.error(e);
-    await m.react('✖️');
-    m.reply(typeof e === 'string' ? e : 'Error al generar o enviar el sticker.');
-  }
-};
-
-handler.help = ['brat <texto>'];
-handler.tags = ['sticker'];
-handler.command = /^brat$/i;
-
-export default handler;
+export default handler
