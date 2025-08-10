@@ -4,36 +4,71 @@ import path from 'path';
 import yts from 'yt-search';
 import fetch from 'node-fetch';
 
-// Control de sesiones activas por usuario para invalidar previas sin aviso
+// Mapa para controlar sesiones activas de comando por usuario
 const sesionesActivas = new Map();
+
+/**
+ * Función para esperar un mensaje que pase filtro, sin timeout (o con timeout opcional).
+ * Funciona con Baileys (conexión en conn.ws).
+ * 
+ * @param {object} conn - Conexión Baileys
+ * @param {string} chatId - ID del chat donde esperar
+ * @param {function} filtro - Función que recibe el mensaje y devuelve true si es válido
+ * @param {number} timeout - Tiempo en ms para esperar (opcional), 0 o undefined = sin timeout
+ * @returns {Promise<object>} - Promise para el mensaje recibido que pasa filtro
+ */
+function waitMessage(conn, chatId, filtro, timeout = 0) {
+  return new Promise((resolve, reject) => {
+    const onMessage = async (messageUpsert) => {
+      if (!messageUpsert.messages || !messageUpsert.messages[0]) return;
+      const message = messageUpsert.messages[0];
+      if (!message.key.remoteJid || message.key.remoteJid !== chatId) return;
+
+      if (filtro(message)) {
+        conn.ws.off('messages.upsert', onMessage);
+        resolve(message);
+      }
+    };
+
+    conn.ws.on('messages.upsert', onMessage);
+
+    if (timeout && timeout > 0) {
+      setTimeout(() => {
+        conn.ws.off('messages.upsert', onMessage);
+        reject(new Error('timeout'));
+      }, timeout);
+    }
+  });
+}
 
 const handler = async (m, { conn, args }) => {
   const userId = m.sender;
 
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
-  // Cancelar sesión previa sin avisar
+  // Invalida sesiones anteriores sin avisar
   if (sesionesActivas.has(userId)) {
     sesionesActivas.get(userId).cancelled = true;
     sesionesActivas.delete(userId);
   }
+  
   // Nueva sesión activa
   const session = { cancelled: false };
   sesionesActivas.set(userId, session);
 
-  // Procesar URL o búsqueda
+  // Detectar URL o hacer búsqueda
   let url = args[0];
   const isUrl = /(youtube\.com|youtu\.be)/.test(url);
   if (!isUrl) {
-    const resultados = await yts(args.join(' '));
-    if (!resultados.videos.length) {
+    const busqueda = await yts(args.join(' '));
+    if (!busqueda.videos.length) {
       sesionesActivas.delete(userId);
       return m.reply('No se encontraron resultados para tu búsqueda');
     }
-    url = resultados.videos[0].url;
+    url = busqueda.videos[0].url;
   }
 
-  // Obtener info para mostrar
+  // Obtener info del video
   const info = await yts(url);
   const video = info.videos[0];
   if (!video) {
@@ -41,6 +76,7 @@ const handler = async (m, { conn, args }) => {
     return m.reply('No se pudo obtener información del video');
   }
 
+  // Preparar texto con info y opciones
   const infoText =
 `🎬 *${video.title}*
 
@@ -52,34 +88,47 @@ Responde *al mensaje* con:
 *1* para descargar Audio
 *2* para descargar Video`;
 
-  // Enviar mensaje y guardar info de mensaje enviado
+  // Enviar mensaje con info y guardar referencia
   const sentMsg = await conn.reply(m.chat, infoText, m);
 
   try {
-    // Tiempo muy alto (24h) para esperar sin cancelar por tiempo
-    const LONG_TIMEOUT = 86400000;
-
+    // Esperar indefinidamente (timeout=0)
     while (true) {
-      const response = await conn.waitMessage(m.chat, LONG_TIMEOUT, (msg) => {
-        return (
-          msg.quoted &&
-          msg.quoted.id === sentMsg.id &&
-          ['1', '2'].includes(msg.text?.trim()) &&
-          msg.sender === userId
-        );
-      });
+      const response = await waitMessage(conn, m.chat, msg => {
+        if (!msg.message) return false;
+        // Comprobar que es respuesta al mensaje enviado y texto válido
+        const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+        if (!quoted) return false;
 
-      // Verificar si sesión sigue activa
+        const quotedId = msg.message.extendedTextMessage.contextInfo.stanzaId || msg.message.extendedTextMessage.contextInfo.stanzaId || msg.message.extendedTextMessage.contextInfo.stanzaId;
+
+        // Para Baileys v4+ el id de mensaje suele ser msg.key.id, lo usamos para comparar
+        const isReplyToSent = msg.message.extendedTextMessage.contextInfo.stanzaId === sentMsg.id || msg.message.extendedTextMessage.contextInfo.stanzaId === sentMsg.key.id || msg.key.id === sentMsg.key.id;
+
+        const textMsg = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+
+        return (
+          msg.key.remoteJid === m.chat &&
+          isReplyToSent &&
+          ['1', '2'].includes(textMsg.trim()) &&
+          msg.key.participant === userId // que el mensaje sea del autor actual
+        );
+      }, 0); // timeout 0 para esperar indefinidamente
+
+      // Verificar que la sesión sigue activa para el usuario
       if (!sesionesActivas.has(userId) || sesionesActivas.get(userId).cancelled) {
-        continue; // Ignorar respuesta antigua y seguir esperando
+        // Sesión cancelada, ignorar este mensaje y seguir esperando
+        continue;
       }
 
-      sesionesActivas.delete(userId); // Se procesa esta respuesta, sesión concluida
+      // Sesión activa, eliminar y proceder
+      sesionesActivas.delete(userId);
 
-      const choice = response.text.trim();
+      const choice = response.message.conversation || response.message.extendedTextMessage.text;
+      const opcion = choice.trim();
 
-      if (choice === '1') {
-        // Descargar y enviar AUDIO vía API Vreden
+      if (opcion === '1') {
+        // DESCARGAR AUDIO
         await m.react('🕒');
 
         const { data } = await axios.get(`https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(url)}`);
@@ -125,7 +174,7 @@ Responde *al mensaje* con:
           },
         }, { quoted: m });
 
-        // Enviar audio
+        // Enviar el audio
         await conn.sendMessage(m.chat, {
           audio: fs.readFileSync(dest),
           mimetype: 'audio/mpeg',
@@ -135,19 +184,19 @@ Responde *al mensaje* con:
         fs.unlinkSync(dest);
         await m.react('✅');
         return;
-
-      } else if (choice === '2') {
-        // Descargar y enviar VIDEO vía API Sylphy
+      } else if (opcion === '2') {
+        // DESCARGAR VIDEO
         await m.react('🕒');
 
-        const apikey = 'sylphy-eab7';
-        const apiUrl = `https://api.sylphy.xyz/download/ytmp4?url=${encodeURIComponent(url)}&apikey=${apikey}`;
+        const apiKey = 'sylphy-eab7';
+        const apiUrl = `https://api.sylphy.xyz/download/ytmp4?url=${encodeURIComponent(url)}&apikey=${apiKey}`;
 
         const resp = await fetch(apiUrl);
         if (!resp.ok) {
           await m.react('✖️');
           return m.reply('✖️ Error al obtener el video.');
         }
+
         const json = await resp.json();
 
         if (!json.res || !json.res.url) {
@@ -171,8 +220,8 @@ Responde *al mensaje* con:
       }
     }
   } catch (e) {
-    sesionesActivas.delete(userId); 
-    // No envía mensaje de tiempo agotado para evitar ruido
+    sesionesActivas.delete(userId);
+    // No enviar mensaje de timeout para no molestar
     return;
   }
 };
