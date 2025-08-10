@@ -4,7 +4,6 @@ import yts from 'yt-search';
 const youtubeRegexID = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]{11})/;
 
 const botname = "Pantheon Bot";
-const dev = "RukiXzy & El Bicho Man";
 
 function formatViews(views) {
   if (!views) return "No disponible";
