@@ -15,8 +15,17 @@ let handler = async (m, { conn, text }) => {
 
     const buffer = await response.buffer();
 
+    // Enviar sticker visual
     await conn.sendMessage(m.chat, {
       sticker: buffer
+    }, { quoted: m });
+
+    // Enviar sticker como archivo para descarga
+    await conn.sendMessage(m.chat, {
+      document: buffer,
+      fileName: `${text}.webp`,
+      mimetype: 'image/webp',
+      caption: 'Sticker en formato descargable'
     }, { quoted: m });
 
     await m.react('✅');
