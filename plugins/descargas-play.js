@@ -10,7 +10,6 @@ const handler = async (m, { conn, args }) => {
   let isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
-    // Buscar por texto usando yt-search
     const searchResults = await yts(args.join(' '));
     if (!searchResults.videos.length) {
       return m.reply('No se encontraron resultados para tu búsqueda');
@@ -21,7 +20,6 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    // Llamar API Vreden con la URL ya garantizada
     const { data } = await axios.get(`https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(url)}`);
 
     if (!data.result?.download?.status) {
@@ -34,7 +32,6 @@ const handler = async (m, { conn, args }) => {
     const fileName = data.result.download.filename || `${title}.mp3`;
     const thumbnail = data.result.metadata.thumbnail || data.result.metadata.image;
 
-    // Descargar archivo MP3 temporalmente
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/[\\/\s]/g, '_')}`);
     const response = await axios.get(audioUrl, {
       headers: {
@@ -51,10 +48,10 @@ const handler = async (m, { conn, args }) => {
       writer.on('error', reject);
     });
 
-    // Enviar la info con imagen + audio
+    // Enviamos la imagen, título y URL
     await conn.sendMessage(m.chat, {
       image: { url: thumbnail },
-      caption: `🎵 *${title}*\n\nDescarga MP3 desde YouTube`,
+      caption: `🎵 *${title}*\n\n📎 URL: ${url}\n\nDescarga MP3 desde YouTube`,
       footer: 'Pantheon Bot',
       contextInfo: {
         externalAdReply: {
@@ -66,6 +63,7 @@ const handler = async (m, { conn, args }) => {
       },
     }, { quoted: m });
 
+    // Enviamos el audio descargado
     await conn.sendMessage(m.chat, {
       audio: fs.readFileSync(dest),
       mimetype: 'audio/mpeg',
