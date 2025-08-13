@@ -32,12 +32,12 @@ export async function before(m, { isAdmin, isBotAdmin, conn }) {
     if (chat.antiLinkUsers[m.sender] < 3) {
       const advertenciaTexto =
 `➤ \`〔 𝗔𝗗𝗩𝗘𝗥𝗧𝗘𝗡𝗖𝗜𝗔 ⚠️ 〕\`
-@${m.sender.split("@")[0]} 𝖯𝖱𝖮𝖧𝖨𝖡𝖨𝖣𝖮 𝖤𝖭𝖫𝖠𝖢𝖤𝖲 𝖣𝖤 𝖮𝖳𝖱𝖮𝖲 𝖦𝖱𝖴𝖯𝖮𝖲, 𝖠𝖭𝖳𝖨𝖫𝖨𝖭𝖪 𝖠𝖢𝖳𝖨𝖵𝖠𝖣𝖮 𝖵𝖤 𝖠 𝖧𝖠𝖢𝖤𝖱 𝖲𝖯𝖠𝖬 𝖠 𝖮𝖳𝖱𝖮 𝖫𝖠𝖣𝖮\`\`\`
+
+\`\`\`@${m.sender.split("@")[0]} 𝖯𝖱𝖮𝖧𝖨𝖡𝖨𝖣𝖮 𝖤𝖭𝖫𝖠𝖢𝖤𝖲 𝖣𝖤 𝖮𝖳𝖱𝖮𝖲 𝖦𝖱𝖴𝖯𝖮𝖲, 𝖠𝖭𝖳𝖨𝖫𝖨𝖭𝖪 𝖠𝖢𝖳𝖨𝖵𝖠𝖣𝖮 𝖵𝖤 𝖠 𝖧𝖠𝖢𝖤𝖱 𝖲𝖯𝖠𝖬 𝖠 𝖮𝖳𝖱𝖮 𝖫𝖠𝖣𝖮\`\`\`
 
 \`\`\`≫ 𝖭𝖮 𝖫𝖨𝖭𝖪𝖲 𝖣𝖤 𝖮𝖳𝖱𝖮𝖲 𝖦𝖱𝖴𝖯𝖮𝖲
 ≫ 𝖠𝖣𝖵𝖤𝖱𝖳𝖤𝖭𝖢𝖨𝖠𝖲 ${advertencias}\`\`\``
 
-      // Ícono tipo foto pequeña en la izquierda
       const iconoAdvertencia = 'https://cdn.russellxz.click/bdbe6f1f.jpeg'
 
       await conn.sendMessage(m.chat, {
@@ -45,25 +45,33 @@ export async function before(m, { isAdmin, isBotAdmin, conn }) {
         contextInfo: {
           mentionedJid: [m.sender],
           externalAdReply: {
-            title: '⚠ ANTILINK ACTIVO ⚠',
-            body: 'Sistema de sanciones 3/3',
+            title: '',
+            body: '',
             thumbnail: await (await fetch(iconoAdvertencia)).buffer(),
             mediaType: 1,
-            renderLargerThumbnail: false
+            renderLargerThumbnail: true, // más grande
+            showAdAttribution: false,
+            thumbnailUrl: iconoAdvertencia,
+            sourceUrl: '', 
+            previewType: "NONE"
           }
         }
       }, { quoted: m })
 
-      // Borra el mensaje con el link
+      // El mensaje de externalAdReply siempre coloca la imagen a la DERECHA
+      // cuando no pones título/cuerpo y usas renderLargerThumbnail = true
+
+      // Borrar mensaje con enlace
       await conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: bang, participant: delet }})
       return true
     }
 
-    // Si llega a 3 → expulsar
+    // Si llega a 3/3 → expulsar
     if (chat.antiLinkUsers[m.sender] >= 3) {
       await conn.reply(m.chat, `*☕ ${await this.getName(m.sender)} ¡has alcanzado la tercera infracción con enlaces prohibidos y serás expulsado!*`, m)
       if (!isBotAdmin)
         return conn.reply(m.chat, `*☕ No soy admin, no puedo eliminar intrusos*`, m)
+
       await conn.sendMessage(m.chat, { delete: { remoteJid: m.chat, fromMe: false, id: bang, participant: delet }})
       await conn.groupParticipantsUpdate(m.chat, [m.sender], 'remove')
       delete chat.antiLinkUsers[m.sender]
