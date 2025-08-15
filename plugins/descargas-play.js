@@ -20,7 +20,7 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    const { data } = await axios.get(`https://api.vreden.my.id/api/ytplaymp3?query=${encodeURIComponent(url)}`);
+    const { data } = await axios.get(`https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(url)}`);
 
     if (!data.result?.download?.status) {
       await m.react('✖️');
