@@ -1,7 +1,7 @@
 //Adaptado & Mejorado por Criss Escobar 
 
 let handler = async (m, { conn, text }) => {
-    const suittag = '584262668729';
+    const suittag = '573203680195';
     const user = m.pushName || 'Usuario';
 
     if (!text) {
