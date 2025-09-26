@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
+const API_KEY = 'sylphy-eab7'; // Reemplaza con tu API key real
+
 const handler = async (m, { conn, args }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
@@ -20,26 +22,23 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    // Petición POST a la API de Sylphy enviando URL en el body
-    const { data } = await axios.post('https://api.sylphy.xyz/download/ytmp3', { url });
+    const { data } = await axios.get('https://api.sylphy.xyz/download/ytmp3', {
+      params: { url, apikey: API_KEY },
+    });
 
     if (!data.status) {
       await m.react('✖️');
       return m.reply(`*✖️ Error:* ${data.mensaje || 'No se pudo obtener el mp3'}`);
     }
 
-    // Ajusta estos campos según la respuesta real de la API
-    const audioUrl = data.result?.url || data.downloadUrl || data.url;
-    const title = data.result?.title || 'audio';
+    const { title, thumbnail, url: audioUrl } = data.res;
     const fileName = `${title}.mp3`;
-    const thumbnail = data.result?.thumbnail || null;
 
     if (!audioUrl) {
       await m.react('✖️');
       return m.reply('*✖️ Error:* No se pudo obtener el enlace de descarga del MP3');
     }
 
-    // Descargar audio a archivo temporal
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/[\\/\s]/g, '_')}`);
     const response = await axios.get(audioUrl, {
       headers: {
@@ -56,7 +55,6 @@ const handler = async (m, { conn, args }) => {
       writer.on('error', reject);
     });
 
-    // Enviar imagen y metadatos si hay thumbnail
     if (thumbnail) {
       await conn.sendMessage(m.chat, {
         image: { url: thumbnail },
@@ -73,7 +71,6 @@ const handler = async (m, { conn, args }) => {
       }, { quoted: m });
     }
 
-    // Enviar audio descargado
     await conn.sendMessage(m.chat, {
       audio: fs.readFileSync(dest),
       mimetype: 'audio/mpeg',
@@ -82,8 +79,8 @@ const handler = async (m, { conn, args }) => {
 
     fs.unlinkSync(dest);
     await m.react('✅');
-  } catch (e) {
-    console.error('Error al descargar MP3:', e, e.response?.data);
+  } catch (error) {
+    console.error('Error al descargar MP3:', error, error.response?.data);
     await m.react('✖️');
     m.reply('⚠️ La descarga ha fallado, posible error en la API o video muy pesado.');
   }
