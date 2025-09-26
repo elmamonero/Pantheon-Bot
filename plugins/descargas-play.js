@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const API_KEY = 'sylphy-eab7'; // Reemplaza con tu API key real
+const DL_API = 'https://delirius-apiofc.vercel.app/download/ytmp3?url=';
 
 const handler = async (m, { conn, args }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
@@ -22,17 +22,16 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    const { data } = await axios.get('https://api.sylphy.xyz/download/ytmp3', {
-      params: { url, apikey: API_KEY },
-    });
+    const dURL = `${DL_API}${encodeURIComponent(url)}`;
+    const { data } = await axios.get(dURL, { timeout: 30000 });
 
     if (!data.status) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* ${data.mensaje || 'No se pudo obtener el mp3'}`);
+      return m.reply(`*✖️ Error:* ${data.message || 'No se pudo obtener el mp3'}`);
     }
 
-    const { title, thumbnail, url: audioUrl } = data.res;
-    const fileName = `${title}.mp3`;
+    const { title, thumbnail, url: audioUrl } = data.data || data; // api response structure varies sometimes
+    const fileName = `${title || 'audio'}.mp3`;
 
     if (!audioUrl) {
       await m.react('✖️');
