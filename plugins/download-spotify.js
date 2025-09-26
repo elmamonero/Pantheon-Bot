@@ -9,6 +9,7 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
   await m.react('⌛');
 
   try {
+    // Llamada a API pública sin apikey
     const response = await fetch(`https://api.nekorinn.my.id/downloader/spotifyplay?q=${encodeURIComponent(text)}`);
     const data = await response.json();
 
@@ -16,8 +17,7 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
       throw new Error('No se encontró la canción o el enlace es inválido.');
     }
 
-    console.log('URL de audio obtenida:', data.result.downloadUrl);
-
+    // Enviar audio al chat desde la url obtenida
     await conn.sendMessage(m.chat, {
       audio: { url: data.result.downloadUrl },
       mimetype: 'audio/mpeg'
