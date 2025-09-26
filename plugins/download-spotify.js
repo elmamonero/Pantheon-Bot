@@ -3,22 +3,24 @@ import axios from 'axios';
 const SEARCH_API = 'https://delirius-apiofc.vercel.app/search/spotify?q=';
 const DL_API = 'https://delirius-apiofc.vercel.app/download/spotifydl?url=';
 
-let handler = async (m, { conn, text, usedPrefix, command, isBot }) => {
-  // Ignorar el mensaje si es del propio bot para evitar bucles
+let handler = async (m, { conn, text, usedPrefix, command }) => {
+  // Ignorar mensaje propio para evitar bucle
   if (m.fromMe) return;
 
   if (!text) {
-    // Solo enviar ayuda cuando no hay texto y no continuar con descarga
     await conn.sendMessage(
       m.chat,
-      `*🎵 Comando Spotify*\n\nUsa:\n` +
-      `• ${usedPrefix + command} <nombre de canción o enlace>\n\n` +
-      `Ejemplos:\n` +
-      `• ${usedPrefix + command} TWICE TT\n` +
-      `• ${usedPrefix + command} https://open.spotify.com/track/60jFaQV7Z4boGC4ob5B5c6\n`,
+      {
+        text:
+          `*🎵 Comando Spotify*\n\nUsa:\n` +
+          `• ${usedPrefix + command} <nombre de canción o enlace>\n\n` +
+          `Ejemplos:\n` +
+          `• ${usedPrefix + command} TWICE TT\n` +
+          `• ${usedPrefix + command} https://open.spotify.com/track/60jFaQV7Z4boGC4ob5B5c6\n`
+      },
       { quoted: m }
     );
-    return;
+    return; // Evitar seguir el flujo si no hay texto
   }
 
   await m.react?.('⌛️');
@@ -29,6 +31,7 @@ let handler = async (m, { conn, text, usedPrefix, command, isBot }) => {
     let picked = null;
 
     if (!isSpotifyUrl) {
+      // Búsqueda usando API
       const sURL = `${SEARCH_API}${encodeURIComponent(text.trim())}`;
       const { data: sRes } = await axios.get(sURL, { timeout: 25000 });
 
@@ -38,6 +41,7 @@ let handler = async (m, { conn, text, usedPrefix, command, isBot }) => {
       trackUrl = picked.url;
     }
 
+    // Descargar usando URL encontrada o entrada directa
     const dURL = `${DL_API}${encodeURIComponent(trackUrl)}`;
     const { data: dRes } = await axios.get(dURL, { timeout: 25000 });
 
