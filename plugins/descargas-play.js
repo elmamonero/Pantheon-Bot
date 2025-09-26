@@ -3,8 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const DL_API = 'https://delirius-apiofc.vercel.app/download/ytmp3?url=';
-
 const handler = async (m, { conn, args }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
@@ -12,40 +10,32 @@ const handler = async (m, { conn, args }) => {
   const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
-    // Buscar video en YouTube si no es URL
     const searchResults = await yts(args.join(' '));
-    if (!searchResults.videos.length) return m.reply('No se encontraron resultados para tu búsqueda');
+    if (!searchResults.videos.length) {
+      return m.reply('No se encontraron resultados para tu búsqueda');
+    }
     url = searchResults.videos[0].url;
   }
 
   try {
     await m.react('🕒');
 
-    const dURL = `${DL_API}${encodeURIComponent(url)}`;
-    // Verificar acceso al enlace antes de descargar
-    const headCheck = await axios.head(dURL, { timeout: 10000 });
-    if (headCheck.status >= 400) {
-      throw new Error(`No se puede acceder al enlace de descarga. Status: ${headCheck.status}`);
-    }
+    const { data } = await axios.get('https://delirius-apiofc.vercel.app/download/ytmp3', {
+      params: { url },
+    });
 
-    // Solicitar descarga mp3 y metadata
-    const { data } = await axios.get(dURL, { timeout: 30000 });
-
-    if (!data.status || !data.data || !data.data.download || !data.data.download.url) {
+    if (!data || !data.url) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el mp3`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el MP3`);
     }
 
-    const { title, author, image, duration, download } = data.data;
-    const { url: audioUrl, filename } = download;
-    const fileName = filename || `${title}.mp3`;
+    const { title, thumbnail, url: audioUrl } = data;
+    const fileName = `${title || 'audio'}.mp3`;
 
-    // Descargar archivo al servidor temporal
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/[\\/\s]/g, '_')}`);
-
     const response = await axios.get(audioUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'User-Agent': 'Mozilla/5.0',
         'Referer': 'https://youtube.com',
       },
       responseType: 'stream',
@@ -58,24 +48,16 @@ const handler = async (m, { conn, args }) => {
       writer.on('error', reject);
     });
 
-    const toMMSS = ms => {
-      const totalSec = Math.floor((+ms || 0) / 1000);
-      const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-      const ss = String(totalSec % 60).padStart(2, '0');
-      return `${mm}:${ss}`;
-    };
-    const mmss = toMMSS(duration * 1000);
-
-    if (image) {
+    if (thumbnail) {
       await conn.sendMessage(m.chat, {
-        image: { url: image },
-        caption: `🎵 *${title}*\n👤 *${author}*\n⏳ *Duración:* ${mmss}\n\n📎 URL: ${url}\n\nDescarga MP3 desde YouTube`,
+        image: { url: thumbnail },
+        caption: `🎵 *${title}*\n\n📎 URL: ${url}\n\nDescarga MP3 desde YouTube`,
         footer: 'Pantheon Bot',
         contextInfo: {
           externalAdReply: {
             title,
             body: 'Descargar MP3 de YouTube',
-            thumbnailUrl: image,
+            thumbnailUrl: thumbnail,
             mediaUrl: url,
           },
         },
@@ -93,7 +75,7 @@ const handler = async (m, { conn, args }) => {
   } catch (error) {
     console.error('Error al descargar MP3:', error);
     await m.react('✖️');
-    await m.reply('⚠️ La descarga ha fallado, posible error en la API o video muy pesado.');
+    m.reply('⚠️ La descarga ha fallado, posible error en la API o video muy pesado.');
   }
 };
 
