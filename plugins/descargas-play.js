@@ -29,11 +29,15 @@ const handler = async (m, { conn, args }) => {
       return m.reply(`*✖️ Error:* No se pudo obtener el MP3`);
     }
 
-    const { title, image: thumbnail, download } = data.data;
-    const audioUrl = download.url;
-    const fileName = download.filename || `${title || 'audio'}.mp3`;
+    const {
+      title,
+      image: thumbnail,
+      download: { url: audioUrl, filename },
+    } = data.data;
 
+    const fileName = filename || `${title || 'audio'}.mp3`;
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/[\\/\s]/g, '_')}`);
+
     const response = await axios.get(audioUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0',
@@ -41,6 +45,7 @@ const handler = async (m, { conn, args }) => {
       },
       responseType: 'stream',
     });
+
     const writer = fs.createWriteStream(dest);
     response.data.pipe(writer);
 
