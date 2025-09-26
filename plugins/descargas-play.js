@@ -3,14 +3,15 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const api = 'https://api.neoxr.eu/api/youtube';
-const API_KEY = 'F0svKu';
+// La API + API KEY juntas en una línea
+const api = `https://api.neoxr.eu/api/youtube?apikey=F0svKu`;
 
 const handler = async (m, { conn, args }) => {
-  if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de video de YouTube');
+  if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL válido de YouTube');
 
   let url = args[0];
   const isUrl = /(youtube\.com|youtu\.be)/.test(url);
+
   if (!isUrl) {
     const searchResults = await yts(args.join(' '));
     if (!searchResults.videos.length) return m.reply('No se encontraron resultados para tu búsqueda');
@@ -20,7 +21,9 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    const queryUrl = `${api}?url=${encodeURIComponent(url)}&type=audio&quality=128kbps&apikey=${API_KEY}`;
+    // Usamos template string para unir url con API
+    const queryUrl = `${api}&url=${encodeURIComponent(url)}&type=audio&quality=128kbps`;
+
     const { data } = await axios.get(queryUrl, { timeout: 30000 });
 
     if (!data.status || !data.data || !data.data.url) {
@@ -34,14 +37,9 @@ const handler = async (m, { conn, args }) => {
 
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/\s/g, '_')}`);
 
-    // Descargar el audio mp3 a archivo temporal
-    const response = await axios({
-      method: 'get',
-      url: audioUrl,
+    const response = await axios.get(audioUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
       responseType: 'stream',
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-      },
     });
 
     const writer = fs.createWriteStream(dest);
@@ -57,6 +55,7 @@ const handler = async (m, { conn, args }) => {
       const [min, sec] = ms.split(':');
       return `${min.padStart(2, '0')}:${sec.padStart(2, '0')}`;
     };
+
     const durationFormatted = duration || '00:00';
 
     if (thumbnail) {
@@ -67,18 +66,16 @@ const handler = async (m, { conn, args }) => {
       }, { quoted: m });
     }
 
-    // Enviar audio correctamente con buffer y mimetype
-    const audioBuffer = fs.readFileSync(dest);
-
     await conn.sendMessage(m.chat, {
-      audio: audioBuffer,
+      audio: fs.readFileSync(dest),
       mimetype: 'audio/mpeg',
       fileName,
-      fileLength: audioBuffer.length,
+      ptt: false,
     }, { quoted: m });
 
     fs.unlinkSync(dest);
     await m.react('✅');
+
   } catch (error) {
     console.error('Error en descarga Neoxr:', error);
     await m.react('✖️');
