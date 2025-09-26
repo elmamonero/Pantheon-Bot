@@ -24,13 +24,14 @@ const handler = async (m, { conn, args }) => {
       params: { url },
     });
 
-    if (!data || !data.url) {
+    if (!data || !data.status || !data.data?.download?.url) {
       await m.react('✖️');
       return m.reply(`*✖️ Error:* No se pudo obtener el MP3`);
     }
 
-    const { title, thumbnail, url: audioUrl } = data;
-    const fileName = `${title || 'audio'}.mp3`;
+    const { title, image: thumbnail, download } = data.data;
+    const audioUrl = download.url;
+    const fileName = download.filename || `${title || 'audio'}.mp3`;
 
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/[\\/\s]/g, '_')}`);
     const response = await axios.get(audioUrl, {
