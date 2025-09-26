@@ -26,7 +26,7 @@ const handler = async (m, { conn, args }) => {
 
     if (!data || !data.status || !data.data?.download?.url) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudoa obtener el MP3`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el MP3`);
     }
 
     const {
