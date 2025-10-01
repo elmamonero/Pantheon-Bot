@@ -1,9 +1,18 @@
 import { igdl } from "ruhend-scraper"
 
+let processing = new Set() // Para evitar procesamiento concurrente del mismo chat
+
 let handler = async (m, { args, conn }) => {
   if (!args[0]) {
     return conn.reply(m.chat, '*[ ☕ ] Ingresa un link de Instagram*')
   }
+
+  if (processing.has(m.chat)) {
+    return conn.reply(m.chat, '*[ ℹ️ ] Ya estoy procesando tu solicitud, espera un momento...*')
+  }
+
+  processing.add(m.chat)
+
   try {
     await m.react('⏳️')
     conn.reply(m.chat, `*[ ☕ ] Ƈᴀʀɢᴀɴᴅᴏ...*\n▰▰▰▰▰▰▰▰▭▭`)
@@ -16,6 +25,8 @@ let handler = async (m, { args, conn }) => {
   } catch {
     await m.react('❌')
     conn.reply(m.chat, '*[ ℹ️ ] Ocurrió un error.*')
+  } finally {
+    processing.delete(m.chat)
   }
 }
 
