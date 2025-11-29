@@ -1,63 +1,37 @@
-let handler = async (m, { conn, participants, isBotAdmin, isAdmin, args }) => {
-  if (!m.isGroup) return m.reply('❗ *Este comando solo funciona en grupos.*');
-  if (!isAdmin) return m.reply('🚫 *Solo los admins pueden usar este comando.*');
-  if (!isBotAdmin) return m.reply('😥 *No puedo eliminar a nadie si no soy admin.*');
+let handler = async (m, { conn, participants, usedPrefix, command, isROwner }) => {
+  if (!global.db.data.settings[conn.user.jid].restrict) {
+    return m.reply('*[ ⚠️ ] 𝙴𝙻 𝙾𝚆𝙽𝙴𝚁 𝚃𝙸𝙴𝙽𝙴 𝚁𝙴𝚂𝚃𝚁𝙸𝙽𝙶𝙸𝙳𝙾 (𝚎𝚗𝚊𝚋𝚕𝚎 𝚛𝚎𝚜𝚝𝚛𝚒𝚌𝚝 / 𝚍𝚒𝚜𝚊𝚋𝚕𝚎 𝚛𝚎𝚜𝚝𝚛𝚒𝚌𝚝) 𝙴𝙻 𝚄𝚂𝙾 𝙳𝙴 𝙴𝚂𝚃𝙴 𝙲𝙾𝙼𝙰𝙽𝙳𝙾*');
+  }
+  let kickte = `*[ ℹ️ ] Menciona al usuario que deseas eliminar.*`
 
-  let users = [];
+  if (!m.mentionedJid[0] && !m.quoted) return m.reply(kickte, m.chat, { mentions: conn.parseMention(kickte)})
 
-  if (m.mentionedJid?.length) {
-    users = m.mentionedJid;
-  } else if (m.quoted?.sender) {
-    users = [m.quoted.sender];
-  } else if (args[0]) {
-    let jid = args[0].replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-    users = [jid];
+  let user = m.mentionedJid[0] ? m.mentionedJid[0] : m.quoted.sender
+
+  // Proteger al bot de ser kickeado
+  if (user === conn.user.jid) {
+    return m.reply(`*[ ℹ️ ] No se puede eliminar al bot del grupo.*`)
   }
 
-  if (!users.length) {
-    return m.reply('👀 *Etiqueta o responde al mensaje de quien quieras eliminar...*');
+  let owr = m.chat.split`-`[0]
+
+  // Verificamos si el usuario a eliminar es el creador del grupo
+  let groupMetadata = await conn.groupMetadata(m.chat)
+  let owner = groupMetadata.owner
+
+  if (user === owner) {
+    return m.reply(`*[ ℹ️ ] No puedes eliminar al creador del grupo.*`)
   }
 
-  // --- LISTA BLANCA ---
-  const whitelist = [
-    conn.user.jid.split('@')[0],   // el bot
-    '584123456789',                // ejemplo: número del owner
-    '573203965212'                 // otro número protegido
-  ];
+  await conn.groupParticipantsUpdate(m.chat, [user], 'remove')
+  m.reply(`*[ ℹ️ ] El participante fue eliminado.*`)
+}
 
-  for (let user of users) {
-    const targetId = user.split('@')[0];
+handler.help = ['kick *<@tag>*']
+handler.tags = ['gc']
+handler.command = ['kick', 'expulsar', 'ban', 'rip', 'sacar'] 
+handler.admin = true
+handler.group = true
+handler.botAdmin = true
 
-    // Protección: si está en la lista blanca, no se expulsa
-    if (whitelist.includes(targetId)) {
-      m.reply(`🛡️ *El número @${targetId} está protegido y no puede ser eliminado.*`, null, {
-        mentions: [user],
-      });
-      continue;
-    }
-
-    // Verificamos que el usuario esté en el grupo
-    if (!participants.some(p => p.id === user)) {
-      m.reply(`🤔 *No encontré a @${targetId} en este grupo...*`, null, {
-        mentions: [user],
-      });
-      continue;
-    }
-
-    await conn.groupParticipantsUpdate(m.chat, [user], 'remove');
-    await m.reply(`👢 *@${targetId} fue eliminado del grupo.*`, null, {
-      mentions: [user],
-    });
-  }
-
-  m.react('✅');
-};
-
-handler.help = ['kick', 'ban'];
-handler.tags = ['group'];
-handler.command = /^(kick|ban|echar|sacar)$/i;
-handler.group = true;
-handler.admin = true;
-handler.botAdmin = true;
-
-export default handler;
+export default handler
