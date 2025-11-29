@@ -3,7 +3,7 @@ let handler = async (m, { conn }) => {
     return m.reply('*[ ⚠️ ] El owner tiene restringido el uso de este comando.*');
   }
   
-  let kickte = `*[ ℹ️ ] Menciona al usuario que deseas eliminar.*`
+  let kickte = `*[ ℹ️ ] Menciona ala usuario que deseas eliminar.*`
 
   if (!m.mentionedJid[0] && !m.quoted) 
     return m.reply(kickte, m.chat, { mentions: conn.parseMention(kickte)})
