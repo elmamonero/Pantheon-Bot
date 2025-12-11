@@ -18,21 +18,21 @@
 "eslint": "eslint .",
 "eslintfix": "eslint --fix ."
 },
-"homepage": "https://github.com/CrxstianEscobar/ShadowUltra-MD",
+"homepage": "https://github.com/BrunoSobrino/TheMystic-Bot-MD",
 "author": {
-"name": "Cristian Escobar"
+"name": "BrunoSobrino"
 },
 "repository": {
 "type": "git",
-"url": "git+https://github.com/CrxstianEscobar/ShadowUltra-MD.git"
+"url": "git+https://github.com/BrunoSobrino/TheMystic-Bot-MD.git"
 },
 "bugs": {
-"url": "https://github.com/CrxstianEscobar/ShadowUltra-MD/issues"
+"url": "https://github.com/BrunoSobrino/TheMystic-Bot-MD/issues"
 },
 "license": "GPL-3.0-or-later",
 "dependencies": {
 "@vitalets/google-translate-api": "^9.2.0",
-"@whiskeysockets/baileys": "github:GataNina-Li/Baileys",
+"@whiskeysockets/baileys": "git+https://github.com/Skidy89/baileys.git#master",
 "google-libphonenumber": "latest",
 "@adiwajshing/keyed-db": "^0.2.4",
 "@bochilteam/scraper": "^5.0.1",
