@@ -24,10 +24,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/meldexzz/bolibotmensual.git"
+    "url": "git+https://github.com/FzTeis/Simple_Bot-Wa.git"
   },
   "bugs": {
-    "url": "https://github.com/meldexzz/bolibotmensual.git"
+    "url": "https://github.com/FzTeis"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
@@ -37,7 +37,7 @@
     "@ibaraki-douji/pixivts": "^2.4.1",
     "@octokit/rest": "^21.1.1",
     "@vitalets/google-translate-api": "^8.0.0",
-    "@whiskeysockets/baileys": "github:gatanina-li/baileys",   
+    "@whiskeysockets/baileys": "npm:@baileys-md/stable",   
     "@xct007/frieren-scraper": "^0.0.2",
     "acrcloud": "^1.4.0",
     "api-dylux": "^1.7.2",
