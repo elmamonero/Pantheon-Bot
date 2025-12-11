@@ -18,16 +18,16 @@
     "eslint": "eslint .",
     "eslintfix": "eslint --fix ."
   },
-  "homepage": "https://github.com/FzTeis/Simple_Bot-Wa",
+  "homepage": "https://github.com/meldexzz/bolibotmensual.git",
   "author": {
-    "name": "FzTeis"
+    "name": "meldexzz"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/FzTeis/Simple_Bot-Wa.git"
+    "url": "https://github.com/meldexzz/bolibotmensual.git"
   },
   "bugs": {
-    "url": "https://github.com/FzTeis/Simple_Bot-Wa/issues"
+    "url": "https://github.com/meldexzz/bolibotmensual.git"
   },
   "license": "GPL-3.0-or-later",
   "dependencies": {
@@ -37,7 +37,7 @@
     "@ibaraki-douji/pixivts": "^2.4.1",
     "@octokit/rest": "^21.1.1",
     "@vitalets/google-translate-api": "^8.0.0",
-    "@whiskeysockets/baileys": "latest",   
+    "@whiskeysockets/baileys": "github:gatanina-li/baileys",   
     "@xct007/frieren-scraper": "^0.0.2",
     "acrcloud": "^1.4.0",
     "api-dylux": "^1.7.2",
