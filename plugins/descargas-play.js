@@ -14,18 +14,21 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         
         let info = data.data
         
-        // ✅ SOLUCIÓN FINAL: Enlace + Info completa (sin archivos)
+        // Texto informativo
         let texto = `*🎵 ${info.title}*\n\n`
         texto += `🎤 *Artista:* ${info.author}\n`
         texto += `📊 *Calidad:* ${info.download.quality}\n`
         texto += `📦 *Tamaño:* ${info.download.size}\n`
-        texto += `⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')}min\n\n`
-        texto += `🔗 *DESCARGAR MP3:* ${info.download.url}`
-        
-        // Enviar imagen de portada + texto
+        texto += `⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')}min\n`
+
+        // Enviar portada con info
         await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
-        
+
+        // ✅ Enviar el MP3 directamente
+        await conn.sendFile(m.chat, info.download.url, `${info.title}.mp3`, null, m, true, { type: 'audioMessage' })
+
     } catch (error) {
+        console.error(error)
         m.reply('*❌ Error al procesar canción*\nVerifica que el enlace sea correcto')
     }
 }
