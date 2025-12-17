@@ -3,10 +3,9 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
 
     let urlYt = text.trim()
     
-    m.reply('*⏳ Descargando audio...*')
+    m.reply('*⏳ Preparando audio...*')
     
     try {
-        // API de Delirius ytmp3
         let apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(urlYt)}`
         let response = await fetch(apiUrl)
         let data = await response.json()
@@ -16,12 +15,25 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let info = data.data
         let downloadUrl = info.download.url
         
-        // ✅ CORREGIDO: Variables definidas ANTES de usar
-        await conn.sendFile(m.chat, downloadUrl, `${info.title.slice(0,50)}.mp3`, '', m)
+        // ✅ PTT AUDIO DIRECTO (reproducible, NO documento)
+        await conn.sendMessage(m.chat, {
+            audio: { url: downloadUrl },
+            mimetype: 'audio/ogg; codecs=opus',
+            ptt: true,
+            contextInfo: {
+                externalAdReply: {
+                    title: info.title.slice(0, 60),
+                    body: info.download.quality,
+                    sourceUrl: urlYt,
+                    mediaType: 1,
+                    mediaUrl: `https://youtu.be/${info.id}`,
+                    thumbnailUrl: info.image
+                }
+            }
+        }, { quoted: m })
         
     } catch (error) {
-        console.error(error)
-        m.reply('*❌ Falló el envío*\n\n🔗 Enlace directo:\nhttps://da.gd/JijyY')
+        m.reply('*❌ Error*\n\n🔗 Descarga directa:\n' + downloadUrl)
     }
 }
 
