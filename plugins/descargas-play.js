@@ -3,24 +3,18 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const api = `https://api.neoxr.eu/api/youtube?apikey=F0svKu`;
+const api = `https://api.siputzx.my.id/api/s/youtube`;
 
 const handler = async (m, { conn, args }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL válido de YouTube');
 
-  let url = args[0];
-  const isUrl = /(youtube\.com|youtu\.be)/.test(url);
-
-  if (!isUrl) {
-    const searchResults = await yts(args.join(' '));
-    if (!searchResults.videos.length) return m.reply('No se encontraron resultados para tu búsqueda');
-    url = searchResults.videos[0].url;
-  }
+  let query = args.join(' ');
 
   try {
     await m.react('🕒');
 
-    const queryUrl = `${api}&url=${encodeURIComponent(url)}&type=audio&quality=128kbps`;
+    // Nueva API usa ?query=
+    const queryUrl = `${api}?query=${encodeURIComponent(query)}`;
     const { data } = await axios.get(queryUrl, { timeout: 30000 });
 
     if (!data.status || !data.data || !data.data.url) {
@@ -28,8 +22,8 @@ const handler = async (m, { conn, args }) => {
       return m.reply('*✖️ Error:* No se pudo obtener el mp3');
     }
 
-    const { title, thumbnail, channel, duration, data: downloadData } = data;
-    const { url: audioUrl, filename } = downloadData || data;
+    const { title, thumbnail, channel, duration, url: audioUrl } = data.data;
+
     const fileName = `${title || 'audio'}.mp3`.replace(/[\\/:*?"<>|]/g, '_');
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/\s/g, '_')}`);
 
@@ -51,8 +45,8 @@ const handler = async (m, { conn, args }) => {
     if (thumbnail) {
       await conn.sendMessage(m.chat, {
         image: { url: thumbnail },
-        caption: `🎵 *${title}*\n👤 *${channel}*\n⏳ *Duración:* ${durationFormatted}\n\n📎 URL: ${url}`,
-        footer: 'Neoxr YouTube Downloader',
+        caption: `🎵 *${title}*\n👤 *${channel}*\n⏳ *Duración:* ${durationFormatted}\n\n🔍 Búsqueda: ${query}`,
+        footer: 'Siputzx YouTube Downloader',
       }, { quoted: m });
     }
 
@@ -67,9 +61,9 @@ const handler = async (m, { conn, args }) => {
     await m.react('✅');
 
   } catch (error) {
-    console.error('Error en descarga Neoxr:', error);
+    console.error('Error en descarga Siputzx:', error);
     await m.react('✖️');
-    await m.reply('⚠️ Falla en la descarga, revisa la URL o intenta luego.');
+    await m.reply('⚠️ Falla en la descarga, revisa la búsqueda o intenta luego.');
   }
 };
 
