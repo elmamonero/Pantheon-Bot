@@ -17,11 +17,11 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let info = data.data
         let downloadUrl = info.download.url
         
-        // ✅ SOLUCIÓN: Enviar como documento primero (evita 403)
+        // ✅ Enviar como documento MP3 (evita 403)
         let docMsg = {
             document: { url: downloadUrl },
             mimetype: 'audio/mpeg',
-            fileName: `${info.title}.mp3`,
+            fileName: `${info.title.replace(/[^\w\s-]/gi, '')}.mp3`,
             contextInfo: {
                 externalAdReply: {
                     title: info.title,
@@ -35,11 +35,11 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         }
         
         await conn.sendMessage(m.chat, docMsg, { quoted: m })
-        m.reply(`*✅ Audio enviado como MP3*\n${info.download.size} | ${info.download.quality}`)
+        m.reply(`✅ *${info.title}*\n📦 ${info.download.size} | ${info.download.quality}`)
         
     } catch (error) {
         console.error(error)
-        m.reply(`*❌ Error*\n\n*🔗 Enlace directo:*\n${data?.data?.download?.url || 'No disponible'}\n\nPrueba descargar manualmente`)
+        m.reply('*❌ Error al procesar*\n\n*🔗 Enlace directo:*\nhttps://da.gd/JijyY\n\nDescarga manualmente')
     }
 }
 
