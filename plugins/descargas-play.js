@@ -16,28 +16,12 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let info = data.data
         let downloadUrl = info.download.url
         
-        // ✅ SOLUCIÓN: Audio como PTT (funciona con da.gd)
-        let audioMsg = {
-            audio: { url: downloadUrl },
-            mimetype: 'audio/mp4; codecs=mp3', 
-            ptt: true,  // Voice note style
-            contextInfo: {
-                externalAdReply: {
-                    title: info.title.slice(0, 60),
-                    body: `${info.download.quality} • ${info.download.size}`,
-                    sourceUrl: `https://youtu.be/${info.id}`,
-                    mediaType: 1,
-                    mediaUrl: `https://youtu.be/${info.id}`,
-                    thumbnailUrl: info.image
-                }
-            }
-        }
-        
-        await conn.sendFile(m.chat, downloadUrl, `${info.title}.mp3`, '', m)
+        // ✅ CORREGIDO: Variables definidas ANTES de usar
+        await conn.sendFile(m.chat, downloadUrl, `${info.title.slice(0,50)}.mp3`, '', m)
         
     } catch (error) {
         console.error(error)
-        m.reply(`*❌ Falló el audio*\n\n${info?.title || 'Canción'}\n🔗 ${downloadUrl || 'https://da.gd/JijyY'}`)
+        m.reply('*❌ Falló el envío*\n\n🔗 Enlace directo:\nhttps://da.gd/JijyY')
     }
 }
 
