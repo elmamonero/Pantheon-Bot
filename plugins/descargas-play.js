@@ -1,7 +1,6 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-import yts from 'yt-search';
 
 const api = `https://api.siputzx.my.id/api/s/youtube`;
 
@@ -13,9 +12,17 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    // Nueva API usa ?query=
-    const queryUrl = `${api}?query=${encodeURIComponent(query)}`;
-    const { data } = await axios.get(queryUrl, { timeout: 30000 });
+    // Petición a la API Siputzx
+    let data;
+    try {
+      const res = await axios.get(`${api}?query=${encodeURIComponent(query)}`, {
+        timeout: 60000 // 60 segundos
+      });
+      data = res.data;
+    } catch (e) {
+      await m.react('✖️');
+      return m.reply('⚠️ La API tardó demasiado en responder. Intenta otra búsqueda o más tarde.');
+    }
 
     if (!data.status || !data.data || !data.data.url) {
       await m.react('✖️');
@@ -27,6 +34,7 @@ const handler = async (m, { conn, args }) => {
     const fileName = `${title || 'audio'}.mp3`.replace(/[\\/:*?"<>|]/g, '_');
     const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/\s/g, '_')}`);
 
+    // Descargar el audio
     const response = await axios.get(audioUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
       responseType: 'stream',
@@ -42,6 +50,7 @@ const handler = async (m, { conn, args }) => {
 
     const durationFormatted = duration || '00:00';
 
+    // Enviar portada
     if (thumbnail) {
       await conn.sendMessage(m.chat, {
         image: { url: thumbnail },
@@ -50,6 +59,7 @@ const handler = async (m, { conn, args }) => {
       }, { quoted: m });
     }
 
+    // Enviar audio
     await conn.sendMessage(m.chat, {
       audio: { url: dest },
       mimetype: 'audio/mpeg',
