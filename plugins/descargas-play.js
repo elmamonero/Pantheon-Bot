@@ -1,9 +1,9 @@
 let handler = async (m, { conn, command, text, usedPrefix }) => {
-    if (!text) return m.reply(`*🎵 YTMP3 DOWNLOADER*\n\n*➜ Uso:* ${usedPrefix + command} <link de youtube>\n\n*Ejemplo:* ${usedPrefix + command} https://youtu.be/TdrL3QxjyVw`)
+    if (!text) return m.reply(`*🎵 PLAY MP3*\n\n*➜ Uso:* ${usedPrefix + command} <link de youtube>\n\n*Ejemplo:* ${usedPrefix + command} https://youtu.be/TdrL3QxjyVw`)
 
     let urlYt = text.trim()
     
-    m.reply('*⏳ Procesando...*')
+    m.reply('*⏳ Buscando la canción...*')
     
     try {
         // API de Delirius ytmp3
@@ -12,7 +12,7 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let response = await fetch(apiUrl)
         let data = await response.json()
         
-        if (!data.status) throw new Error('❌ Error en la API')
+        if (!data.status) throw new Error('❌ Canción no encontrada')
         
         let info = data.data
         let downloadUrl = info.download.url
@@ -24,19 +24,19 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         texto += `📊 *Calidad:* ${quality}\n`
         texto += `📦 *Tamaño:* ${size}\n`
         texto += `👤 *Artista:* ${info.author}\n`
-        texto += `▶️ *[Descargar MP3]*(${downloadUrl})`
+        texto += `▶️ *[Descargar]*(${downloadUrl})`
         
         await m.reply(texto.trim())
         
     } catch (error) {
         console.error(error)
-        m.reply('*❌ Error al procesar el video*\nIntenta con otro enlace o más tarde')
+        m.reply('*❌ Error al buscar la canción*\nVerifica el enlace o intenta más tarde')
     }
 }
 
-handler.help = ['ytmp3 <url>']
+handler.help = ['play <url>']
 handler.tags = ['downloader']
-handler.command = ['ytmp3', 'mp3', 'audio', 'musica']
+handler.command = ['play']
 handler.limit = true
 
 export default handler
