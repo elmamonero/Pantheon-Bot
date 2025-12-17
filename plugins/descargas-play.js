@@ -17,29 +17,19 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let info = data.data
         let downloadUrl = info.download.url
         
-        // ✅ Enviar como documento MP3 (evita 403)
-        let docMsg = {
-            document: { url: downloadUrl },
-            mimetype: 'audio/mpeg',
-            fileName: `${info.title.replace(/[^\w\s-]/gi, '')}.mp3`,
-            contextInfo: {
-                externalAdReply: {
-                    title: info.title,
-                    body: `${info.download.quality} | ${info.download.size}`,
-                    sourceUrl: urlYt,
-                    mediaType: 1,
-                    mediaUrl: `https://youtu.be/${info.id}`,
-                    thumbnailUrl: info.image
-                }
-            }
-        }
+        // ✅ SOLUCIÓN DEFINITIVA: Solo enlace + info (sin enviar archivo)
+        let texto = `*🎵 ${info.title}*\n\n`
+        texto += `📊 *Calidad:* ${info.download.quality}\n`
+        texto += `📦 *Tamaño:* ${info.download.size}\n`
+        texto += `👤 *Artista:* ${info.author}\n`
+        texto += `🎼 *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')}min\n\n`
+        texto += `🔗 *[Descargar MP3]*(${downloadUrl})`
         
-        await conn.sendMessage(m.chat, docMsg, { quoted: m })
-        m.reply(`✅ *${info.title}*\n📦 ${info.download.size} | ${info.download.quality}`)
+        await m.reply(texto)
         
     } catch (error) {
         console.error(error)
-        m.reply('*❌ Error al procesar*\n\n*🔗 Enlace directo:*\nhttps://da.gd/JijyY\n\nDescarga manualmente')
+        m.reply('*❌ Error al procesar*\n\nRevisa que el enlace sea de YouTube válido')
     }
 }
 
