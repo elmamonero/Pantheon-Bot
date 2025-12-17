@@ -3,41 +3,30 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
 
     let urlYt = text.trim()
     
-    m.reply('*⏳ Preparando audio...*')
+    m.reply('*⏳ 🎵 Preparando canción...*')
     
     try {
         let apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(urlYt)}`
         let response = await fetch(apiUrl)
         let data = await response.json()
         
-        if (!data.status) throw new Error('❌ Audio no disponible')
+        if (!data.status) throw new Error('❌ Canción no disponible')
         
         let info = data.data
         
-        // ✅ VARIABLES DEFINIDAS ANTES DEL CATCH
-        let downloadUrl = info.download.url
-        let title = info.title.slice(0, 50)
+        // ✅ SOLUCIÓN FINAL: Enlace + Info completa (sin archivos)
+        let texto = `*🎵 ${info.title}*\n\n`
+        texto += `🎤 *Artista:* ${info.author}\n`
+        texto += `📊 *Calidad:* ${info.download.quality}\n`
+        texto += `📦 *Tamaño:* ${info.download.size}\n`
+        texto += `⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')}min\n\n`
+        texto += `🔗 *DESCARGAR MP3:* ${info.download.url}`
         
-        // ✅ AUDIO PTT DIRECTO - NO DOCUMENTO
-        await conn.sendMessage(m.chat, {
-            audio: { url: downloadUrl },
-            mimetype: 'audio/ogg; codecs=opus',
-            ptt: true,
-            contextInfo: {
-                externalAdReply: {
-                    title: title,
-                    body: `${info.download.quality} • ${info.download.size}`,
-                    sourceUrl: urlYt,
-                    mediaType: 1,
-                    mediaUrl: `https://youtu.be/${info.id}`,
-                    thumbnailUrl: info.image
-                }
-            }
-        }, { quoted: m })
+        // Enviar imagen de portada + texto
+        await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
         
     } catch (error) {
-        console.error(error)
-        m.reply('*❌ Error*\n\n🔗 Enlace directo:\nhttps://da.gd/JijyY')
+        m.reply('*❌ Error al procesar canción*\nVerifica que el enlace sea correcto')
     }
 }
 
@@ -46,4 +35,3 @@ handler.limit = true
 handler.group = true
 
 export default handler
-
