@@ -15,22 +15,21 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
 
         let info = data.data
 
-        // Texto informativo
-        let texto = `*🎵 ${info.title}*\n\n`
-        texto += `🎤 *Artista:* ${info.author}\n`
-        texto += `📊 *Calidad:* ${info.download.quality}\n`
-        texto += `📦 *Tamaño:* ${info.download.size}\n`
-        texto += `⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')} min\n`
+        // Descargar el MP3 como Buffer
+        let audioRes = await fetch(info.download.url)
+        if (!audioRes.ok) throw new Error('No se pudo descargar el audio')
+        let audioBuffer = await audioRes.buffer()
 
         // Enviar portada con info
+        let texto = `*🎵 ${info.title}*\n\n🎤 *Artista:* ${info.author}\n📊 *Calidad:* ${info.download.quality}\n📦 *Tamaño:* ${info.download.size}\n⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')} min`
         await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
 
-        // ✅ Enviar el MP3 como audio (no documento)
+        // ✅ Enviar el MP3 como audio real
         await conn.sendMessage(m.chat, {
-            audio: { url: info.download.url },
-            mimetype: 'audio/mp4', // o 'audio/mpeg' según el servidor
+            audio: audioBuffer,
+            mimetype: 'audio/mpeg',
             fileName: `${info.title}.mp3`,
-            ptt: false // si quieres que se mande como nota de voz pon true
+            ptt: false
         }, { quoted: m })
 
     } catch (error) {
