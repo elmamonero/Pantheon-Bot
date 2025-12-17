@@ -1,43 +1,47 @@
 import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
-
-const api = `https://api.siputzx.my.id/api/s/youtube`;
+import yts from 'yt-search';
 
 const handler = async (m, { conn, args }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL válido de YouTube');
 
   let query = args.join(' ');
+  let url = query;
+
+  // Si no es URL, buscar en YouTube
+  if (!/(youtube\.com|youtu\.be)/.test(query)) {
+    const search = await yts(query);
+    if (!search.videos.length) return m.reply('No encontré resultados');
+    url = search.videos[0].url;
+  }
 
   try {
     await m.react('🕒');
 
-    // Petición a la API Siputzx
-    let data;
-    try {
-      const res = await axios.get(`${api}?query=${encodeURIComponent(query)}`, {
-        timeout: 60000 // 60 segundos
-      });
-      data = res.data;
-    } catch (e) {
+    // Llamada a la API Delirius
+    const apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(url)}`;
+    const { data } = await axios.get(apiUrl, { timeout: 60000 });
+
+    if (!data.status || !data.data || !data.data.download?.url) {
       await m.react('✖️');
-      return m.reply('⚠️ La API tardó demasiado en responder. Intenta otra búsqueda o más tarde.');
+      return m.reply('✖️ Error: La API no devolvió un enlace de descarga.');
     }
 
-    if (!data.status || !data.data || !data.data.url) {
-      await m.react('✖️');
-      return m.reply('*✖️ Error:* No se pudo obtener el mp3');
-    }
+    const info = data.data;
+    const audioUrl = info.download.url;
+    const title = info.title || 'audio';
+    const thumbnail = info.image;
+    const author = info.author || 'Desconocido';
+    const duration = info.duration || '00:00';
 
-    const { title, thumbnail, channel, duration, url: audioUrl } = data.data;
+    const fileName = `${title}.mp3`.replace(/[\\/:*?"<>|]/g, '_');
+    const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
 
-    const fileName = `${title || 'audio'}.mp3`.replace(/[\\/:*?"<>|]/g, '_');
-    const dest = path.join('/tmp', `${Date.now()}_${fileName.replace(/\s/g, '_')}`);
-
-    // Descargar el audio
+    // Descargar el MP3
     const response = await axios.get(audioUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
       responseType: 'stream',
+      headers: { 'User-Agent': 'Mozilla/5.0' }
     });
 
     const writer = fs.createWriteStream(dest);
@@ -48,32 +52,27 @@ const handler = async (m, { conn, args }) => {
       writer.on('error', reject);
     });
 
-    const durationFormatted = duration || '00:00';
-
     // Enviar portada
-    if (thumbnail) {
-      await conn.sendMessage(m.chat, {
-        image: { url: thumbnail },
-        caption: `🎵 *${title}*\n👤 *${channel}*\n⏳ *Duración:* ${durationFormatted}\n\n🔍 Búsqueda: ${query}`,
-        footer: 'Siputzx YouTube Downloader',
-      }, { quoted: m });
-    }
+    await conn.sendMessage(m.chat, {
+      image: { url: thumbnail },
+      caption: `🎵 *${title}*\n👤 *${author}*\n⏳ *Duración:* ${duration}s\n📎 URL: ${url}`,
+    }, { quoted: m });
 
     // Enviar audio
     await conn.sendMessage(m.chat, {
       audio: { url: dest },
       mimetype: 'audio/mpeg',
-      fileName: fileName,
+      fileName,
       ptt: false,
     }, { quoted: m });
 
     fs.unlinkSync(dest);
     await m.react('✅');
 
-  } catch (error) {
-    console.error('Error en descarga Siputzx:', error);
+  } catch (e) {
+    console.error('Error en descarga Delirius:', e);
     await m.react('✖️');
-    await m.reply('⚠️ Falla en la descarga, revisa la búsqueda o intenta luego.');
+    m.reply('⚠️ Error descargando el audio. Intenta más tarde.');
   }
 };
 
