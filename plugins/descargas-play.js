@@ -1,31 +1,37 @@
+import fetch from 'node-fetch'
+
 let handler = async (m, { conn, command, text, usedPrefix }) => {
     if (!text) return m.reply(`*🎵 PLAY*\n\n*➜ Uso:* ${usedPrefix + command} <link de youtube>`)
 
     let urlYt = text.trim()
-    
     m.reply('*⏳ 🎵 Preparando canción...*')
-    
+
     try {
         let apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(urlYt)}`
         let response = await fetch(apiUrl)
         let data = await response.json()
-        
+
         if (!data.status) throw new Error('❌ Canción no disponible')
-        
+
         let info = data.data
-        
+
         // Texto informativo
         let texto = `*🎵 ${info.title}*\n\n`
         texto += `🎤 *Artista:* ${info.author}\n`
         texto += `📊 *Calidad:* ${info.download.quality}\n`
         texto += `📦 *Tamaño:* ${info.download.size}\n`
-        texto += `⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')}min\n`
+        texto += `⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')} min\n`
 
         // Enviar portada con info
         await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
 
-        // ✅ Enviar el MP3 directamente
-        await conn.sendFile(m.chat, info.download.url, `${info.title}.mp3`, null, m, true, { type: 'audioMessage' })
+        // ✅ Enviar el MP3 como audio (no documento)
+        await conn.sendMessage(m.chat, {
+            audio: { url: info.download.url },
+            mimetype: 'audio/mp4', // o 'audio/mpeg' según el servidor
+            fileName: `${info.title}.mp3`,
+            ptt: false // si quieres que se mande como nota de voz pon true
+        }, { quoted: m })
 
     } catch (error) {
         console.error(error)
