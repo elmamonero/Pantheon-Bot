@@ -13,17 +13,20 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         if (!data.status) throw new Error('❌ Audio no disponible')
         
         let info = data.data
-        let downloadUrl = info.download.url
         
-        // ✅ PTT AUDIO DIRECTO (reproducible, NO documento)
+        // ✅ VARIABLES DEFINIDAS ANTES DEL CATCH
+        let downloadUrl = info.download.url
+        let title = info.title.slice(0, 50)
+        
+        // ✅ AUDIO PTT DIRECTO - NO DOCUMENTO
         await conn.sendMessage(m.chat, {
             audio: { url: downloadUrl },
             mimetype: 'audio/ogg; codecs=opus',
             ptt: true,
             contextInfo: {
                 externalAdReply: {
-                    title: info.title.slice(0, 60),
-                    body: info.download.quality,
+                    title: title,
+                    body: `${info.download.quality} • ${info.download.size}`,
                     sourceUrl: urlYt,
                     mediaType: 1,
                     mediaUrl: `https://youtu.be/${info.id}`,
@@ -33,7 +36,8 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         }, { quoted: m })
         
     } catch (error) {
-        m.reply('*❌ Error*\n\n🔗 Descarga directa:\n' + downloadUrl)
+        console.error(error)
+        m.reply('*❌ Error*\n\n🔗 Enlace directo:\nhttps://da.gd/JijyY')
     }
 }
 
@@ -42,3 +46,4 @@ handler.limit = true
 handler.group = true
 
 export default handler
+
