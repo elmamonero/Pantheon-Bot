@@ -1,9 +1,9 @@
 let handler = async (m, { conn, command, text, usedPrefix }) => {
-    if (!text) return m.reply(`*🎵 PLAY MP3*\n\n*➜ Uso:* ${usedPrefix + command} <link de youtube>\n\n*Ejemplo:* ${usedPrefix + command} https://youtu.be/TdrL3QxjyVw`)
+    if (!text) return m.reply(`*🎵 PLAY*\n\n*➜ Uso:* ${usedPrefix + command} <link de youtube>\n\n*Ejemplo:* ${usedPrefix + command} https://youtu.be/zlCBM48A2Dk`)
 
     let urlYt = text.trim()
     
-    m.reply('*⏳ Buscando la canción...*')
+    m.reply('*⏳ Procesando audio...*')
     
     try {
         // API de Delirius ytmp3
@@ -12,25 +12,33 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let response = await fetch(apiUrl)
         let data = await response.json()
         
-        if (!data.status) throw new Error('❌ Canción no encontrada')
+        if (!data.status) throw new Error('❌ Audio no disponible')
         
         let info = data.data
         let downloadUrl = info.download.url
-        let title = info.title
-        let size = info.download.size
-        let quality = info.download.quality
         
-        let texto = `*🎵 ${title}*\n\n`
-        texto += `📊 *Calidad:* ${quality}\n`
-        texto += `📦 *Tamaño:* ${size}\n`
-        texto += `👤 *Artista:* ${info.author}\n`
-        texto += `▶️ *[Descargar]*(${downloadUrl})`
+        // Enviar audio directamente
+        let audioMsg = {
+            audio: { url: downloadUrl },
+            mimetype: 'audio/mp4',
+            ptt: false,
+            contextInfo: {
+                externalAdReply: {
+                    title: info.title,
+                    body: `${info.download.quality} | ${info.download.size}`,
+                    sourceUrl: urlYt,
+                    mediaType: 1,
+                    mediaUrl: `https://youtu.be/${info.id}`,
+                    thumbnailUrl: info.image
+                }
+            }
+        }
         
-        await m.reply(texto.trim())
+        await conn.sendMessage(m.chat, audioMsg, { quoted: m })
         
     } catch (error) {
         console.error(error)
-        m.reply('*❌ Error al buscar la canción*\nVerifica el enlace o intenta más tarde')
+        m.reply('*❌ Error al enviar audio*\n*Enlace directo:* https://da.gd/JijyY\nVerifica el enlace')
     }
 }
 
@@ -38,5 +46,6 @@ handler.help = ['play <url>']
 handler.tags = ['downloader']
 handler.command = ['play']
 handler.limit = true
+handler.group = true
 
 export default handler
