@@ -17,11 +17,11 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         let info = data.data
         let downloadUrl = info.download.url
         
-        // Enviar audio directamente
-        let audioMsg = {
-            audio: { url: downloadUrl },
-            mimetype: 'audio/mp4',
-            ptt: false,
+        // ✅ SOLUCIÓN: Enviar como documento primero (evita 403)
+        let docMsg = {
+            document: { url: downloadUrl },
+            mimetype: 'audio/mpeg',
+            fileName: `${info.title}.mp3`,
             contextInfo: {
                 externalAdReply: {
                     title: info.title,
@@ -34,11 +34,12 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
             }
         }
         
-        await conn.sendMessage(m.chat, audioMsg, { quoted: m })
+        await conn.sendMessage(m.chat, docMsg, { quoted: m })
+        m.reply(`*✅ Audio enviado como MP3*\n${info.download.size} | ${info.download.quality}`)
         
     } catch (error) {
         console.error(error)
-        m.reply('*❌ Error al enviar audio*\n*Enlace directo:* https://da.gd/JijyY\nVerifica el enlace')
+        m.reply(`*❌ Error*\n\n*🔗 Enlace directo:*\n${data?.data?.download?.url || 'No disponible'}\n\nPrueba descargar manualmente`)
     }
 }
 
@@ -46,6 +47,5 @@ handler.help = ['play <url>']
 handler.tags = ['downloader']
 handler.command = ['play']
 handler.limit = true
-handler.group = true
 
 export default handler
