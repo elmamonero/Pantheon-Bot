@@ -1,7 +1,7 @@
-import axios from 'axios';
+import yts from 'yt-search';
+import ytdl from 'ytdl-core';
 import fs from 'fs';
 import path from 'path';
-import yts from 'yt-search';
 
 const handler = async (m, { conn, args }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL válido de YouTube');
@@ -19,33 +19,24 @@ const handler = async (m, { conn, args }) => {
   try {
     await m.react('🕒');
 
-    // Llamada a la API Delirius
-    const apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(url)}`;
-    const { data } = await axios.get(apiUrl, { timeout: 60000 });
-
-    if (!data.status || !data.data || !data.data.download?.url) {
-      await m.react('✖️');
-      return m.reply('✖️ Error: La API no devolvió un enlace de descarga.');
-    }
-
-    const info = data.data;
-    const audioUrl = info.download.url;
-    const title = info.title || 'audio';
-    const thumbnail = info.image;
-    const author = info.author || 'Desconocido';
-    const duration = info.duration || '00:00';
+    // Obtener información del video
+    const info = await ytdl.getInfo(url);
+    const title = info.videoDetails.title;
+    const thumbnail = info.videoDetails.thumbnails.pop().url;
+    const author = info.videoDetails.author.name;
+    const duration = info.videoDetails.lengthSeconds;
 
     const fileName = `${title}.mp3`.replace(/[\\/:*?"<>|]/g, '_');
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
 
-    // Descargar el MP3
-    const response = await axios.get(audioUrl, {
-      responseType: 'stream',
-      headers: { 'User-Agent': 'Mozilla/5.0' }
+    // Descargar audio directamente desde YouTube
+    const stream = ytdl(url, {
+      filter: 'audioonly',
+      quality: 'highestaudio'
     });
 
     const writer = fs.createWriteStream(dest);
-    response.data.pipe(writer);
+    stream.pipe(writer);
 
     await new Promise((resolve, reject) => {
       writer.on('finish', resolve);
@@ -70,7 +61,7 @@ const handler = async (m, { conn, args }) => {
     await m.react('✅');
 
   } catch (e) {
-    console.error('Error en descarga Delirius:', e);
+    console.error('Error en descarga:', e);
     await m.react('✖️');
     m.reply('⚠️ Error descargando el audio. Intenta más tarde.');
   }
