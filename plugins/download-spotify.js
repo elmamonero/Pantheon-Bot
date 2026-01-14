@@ -1,61 +1,55 @@
 import axios from 'axios';
 
+// SIN URL FIJA
 const BASE_URL = 'https://api.delirius.store/download/spotifydl';
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
   if (m.fromMe) return;
 
   if (!text) {
-    return await conn.sendMessage(m.chat, { 
-      text: `╭────═[ PANTHEON BOT ]═─────⋆
-│ Ingrese el nombre de la canción o un link.
-╰───────────═┅═──────────` 
-    }, { quoted: m });
+    const usage = `╭────═[ PANTHEON BOT - MD ]═─────⋆
+│ 🎵 *SPOTIFY DOWNLOADER*
+│
+│ Use el comando de la siguiente forma:
+│ • ${usedPrefix + command} <nombre o enlace>
+│
+│ Ejemplo:
+│ • ${usedPrefix + command} I Can't Stop Me
+╰───────────═┅═──────────`;
+    return await conn.sendMessage(m.chat, { text: usage }, { quoted: m });
   }
 
   await m.react?.('⌛️');
 
   try {
-    let spotifyUrl = text.trim();
     const isUrl = /https?:\/\/open\.spotify\.com\//i.test(text);
+    const query = encodeURIComponent(text.trim());
 
-    // SI ES TEXTO -> BUSCAR
-    if (!isUrl) {
-      const searchRes = await axios.get(
-        `${BASE_URL}/search?q=${encodeURIComponent(text)}`
-      );
-      // ADAPTA ESTA PARTE SEGÚN LA RESPUESTA REAL DE LA API
-      let results = searchRes.data.data || searchRes.data.result || searchRes.data;
-      let item = Array.isArray(results) ? results[0] : results;
-      spotifyUrl = item?.url || item?.link || item?.external_urls?.spotify;
+    // SI ES LINK: usa ?url=
+    // SI ES TEXTO: usa ?q= (o el parámetro que use realmente tu API para buscar)
+    const apiEndpoint = `${BASE_URL}?${isUrl ? 'url' : 'q'}=${query}`;
 
-      if (!spotifyUrl) {
-        throw new Error('No se pudo encontrar un link de Spotify para esa búsqueda.');
-      }
+    const { data: response } = await axios.get(apiEndpoint, { timeout: 30000 });
+
+    if (!response || response.status !== true) {
+      throw new Error('La API no devolvió una respuesta válida.');
     }
 
-    // DESCARGA POR LINK (sea el que mandó o el que buscamos)
-    const downloadRes = await axios.get(
-      `${BASE_URL}?url=${encodeURIComponent(spotifyUrl)}`
-    );
-
-    if (!downloadRes.data || !downloadRes.data.status) {
-      throw new Error('La API no pudo procesar la descarga de este link.');
-    }
-
-    const { title, author, duration, image, download } = downloadRes.data.data;
+    const { title, author, duration, image, download } = response.data;
 
     const formatTime = (ms) => {
-      if (!ms) return '00:00';
-      const min = Math.floor(ms / 60000);
-      const sec = ((ms % 60000) / 1000).toFixed(0);
-      return `${min}:${(sec < 10 ? '0' : '')}${sec}`;
+      const seconds = Math.floor((ms / 1000) % 60);
+      const minutes = Math.floor((ms / (1000 * 60)) % 60);
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     };
 
-    const caption = `╭────═[ PANTHEON BOT ]═─────⋆
+    const durationStr = formatTime(duration);
+
+    const caption = `╭────═[ PANTHEON BOT - MD ]═─────⋆
 │ 🎵 *TÍTULO:* ${title}
 │ 🎙️ *ARTISTA:* ${author}
-│ ⏳ *DURACIÓN:* ${formatTime(duration)}
+│ ⏳ *DURACIÓN:* ${durationStr}
+│ ✨ *ESTADO:* Descargando...
 ╰───────────═┅═──────────`;
 
     await conn.sendMessage(m.chat, {
@@ -63,11 +57,11 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
       contextInfo: {
         externalAdReply: {
           showAdAttribution: true,
-          title: 'Spotify Downloader',
+          title: 'Spotify Player',
           body: author,
+          mediaType: 1,
           thumbnailUrl: image,
-          sourceUrl: spotifyUrl,
-          mediaType: 1
+          sourceUrl: isUrl ? text : 'https://www.spotify.com'
         }
       }
     }, { quoted: m });
@@ -81,11 +75,14 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     await m.react?.('✅');
 
   } catch (e) {
-    console.error('Error en Spotify:', e);
+    console.error('Error en Spotify Pantheon:', e);
     await m.react?.('❌');
-    await m.reply(`╭────═[ ERROR ]═─────⋆
-│ ${e.message}
-╰───────────═┅═──────────`);
+
+    const errorMsg = `╭────═[ ERROR - PANTHEON ]═─────⋆
+│ No se pudo procesar la canción.
+│ Intente con otro nombre o enlace.
+╰───────────═┅═──────────`;
+    await m.reply(errorMsg);
   }
 };
 
