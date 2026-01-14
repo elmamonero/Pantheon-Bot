@@ -2,6 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
+const MAX_SIZE_MB = 30; // Límite máximo 15MB
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
 const handler = async (m, { conn, args, command }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
@@ -56,7 +59,7 @@ const handler = async (m, { conn, args, command }) => {
 
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
-    // Descarga silenciosa en background
+    // Descarga con límite de tamaño
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
     console.log('Descargando audio desde:', audioUrl);
@@ -66,7 +69,7 @@ const handler = async (m, { conn, args, command }) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://youtube.com/',
       },
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(20000) // Reducido a 20s para archivos pesados
     });
 
     if (!audioResponse.ok) {
@@ -74,15 +77,16 @@ const handler = async (m, { conn, args, command }) => {
     }
 
     const arrayBuffer = await audioResponse.arrayBuffer();
-    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
-
-    const stats = fs.statSync(dest);
-    if (stats.size === 0 || stats.size < 1024) {
-      fs.unlinkSync(dest);
-      throw new Error('Archivo muy pequeño o vacío');
+    
+    // ✅ VERIFICAR TAMAÑO ANTES de guardar
+    if (arrayBuffer.byteLength > MAX_SIZE_BYTES) {
+      throw new Error(`Archivo muy pesado (${(arrayBuffer.byteLength/1024/1024).toFixed(1)}MB). Máximo ${MAX_SIZE_MB}MB`);
     }
 
-    // ✅ SOLO THUMBNAIL + INFO + AUDIO (sin mensajes intermedios)
+    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
+    const stats = fs.statSync(dest);
+
+    // Thumbnail + info
     if (thumbnail) {
       try {
         const thumbResponse = await fetch(thumbnail, { 
@@ -96,11 +100,10 @@ const handler = async (m, { conn, args, command }) => {
         }, { quoted: m });
       } catch (e) {
         console.log('Thumbnail falló:', e.message);
-        // Fallback: enviar solo audio si falla thumbnail
       }
     }
 
-    // Enviar audio inmediatamente
+    // Audio directo desde URL
     await conn.sendMessage(m.chat, {
       audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
@@ -117,7 +120,12 @@ const handler = async (m, { conn, args, command }) => {
   } catch (error) {
     if (error.name === 'AbortError') {
       await m.react('⏰');
-      return m.reply('⏰ *Timeout* - Canción muy pesada, prueba otra.');
+      return m.reply(`⏰ *Timeout* - Canción muy pesada (>${MAX_SIZE_MB}MB)`);
+    }
+    
+    if (error.message.includes('muy pesado')) {
+      await m.react('📏');
+      return m.reply(error.message);
     }
     
     console.error('Error completo:', error);
