@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const MAX_SIZE_MB = 15;
+const MAX_SIZE_MB = 50;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const handler = async (m, { conn, args, command }) => {
