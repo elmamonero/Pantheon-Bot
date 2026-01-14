@@ -1,115 +1,94 @@
 import axios from 'axios';
 
-// Nueva API proporcionada
-const BASE_API = 'https://api.delirius.store/download/spotifydl?url=https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn';
+// Nueva API configurada con tu esquema
+const BASE_URL = 'https://api.delirius.store/download/spotifydl?url=https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn';
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
-  // Ignorar mensaje propio para evitar bucle
+  // Evitar bucles
   if (m.fromMe) return;
 
+  // Validación de texto
   if (!text) {
-    await conn.sendMessage(
-      m.chat,
-      {
-        text:
-          `*🎵 Comando Spotify*\n\nUsa:\n` +
-          `• ${usedPrefix + command} <nombre de canción o enlace>\n\n` +
-          `Ejemplos:\n` +
-          `• ${usedPrefix + command} TWICE TT\n` +
-          `• ${usedPrefix + command} https://open.spotify.com/track/0`
-      },
-      { quoted: m }
-    );
-    return; 
+    const usage = `╭────═[ PANTHEON BOT - MD ]═─────⋆\n` +
+                  `│ 🎵 *SPOTIFY DOWNLOADER*\n` +
+                  `│\n` +
+                  `│ Use el comando de la siguiente forma:\n` +
+                  `│ • ${usedPrefix + command} <nombre o enlace>\n` +
+                  `│\n` +
+                  `│ Ejemplo:\n` +
+                  `│ • ${usedPrefix + command} I Can't Stop Me\n` +
+                  `╰───────────═┅═──────────`;
+    return await conn.sendMessage(m.chat, { text: usage }, { quoted: m });
   }
 
   await m.react?.('⌛️');
 
   try {
-    const isSpotifyUrl = /https?:\/\/open\.spotify\.com\/(track|album|playlist|episode)\/[A-Za-z0-9]+/i.test(text);
-    let trackUrl = text.trim();
-    let picked = null;
+    // Detectar si el usuario envió un link o una búsqueda
+    const isUrl = /https?:\/\/open\.spotify\.com\//i.test(text);
+    const apiEndpoint = `${BASE_URL}?${isUrl ? 'url' : 'q'}=${encodeURIComponent(text.trim())}`;
 
-    if (!isSpotifyUrl) {
-      // Búsqueda usando la NUEVA API
-      // Nota: He mantenido la estructura de parámetros ?q=, si tu API usa otra, dímelo.
-      const sURL = `${BASE_API}/search?q=${encodeURIComponent(text.trim())}`;
-      const { data: sRes } = await axios.get(sURL, { timeout: 25000 });
+    // Petición a la API
+    const { data: response } = await axios.get(apiEndpoint, { timeout: 30000 });
 
-      if (!sRes?.status || !Array.isArray(sRes?.data) || sRes.data.length === 0) {
-          throw new Error('No se encontraron resultados.');
-      }
-
-      picked = sRes.data[0];
-      trackUrl = picked.url;
+    // Validar según tu esquema (status: true)
+    if (!response || response.status !== true) {
+      throw new Error('La API no devolvió una respuesta válida.');
     }
 
-    // Descargar usando la NUEVA API
-    const dURL = `${BASE_API}/download?url=${encodeURIComponent(trackUrl)}`;
-    const { data: dRes } = await axios.get(dURL, { timeout: 25000 });
+    // Extraer datos del esquema: data { title, author, duration, image, download }
+    const { title, author, duration, image, download } = response.data;
 
-    if (!dRes?.status || !dRes?.data?.url) {
-      throw new Error('No se pudo obtener el enlace de descarga.');
-    }
-
-    const {
-      title = picked?.title || 'Desconocido',
-      author = picked?.artist || 'Desconocido',
-      image = picked?.image || '',
-      duration = 0,
-      url: download
-    } = dRes.data || {};
-
-    const toMMSS = (ms) => {
-      const totalSec = Math.floor((+ms || 0) / 1000);
-      const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
-      const ss = String(totalSec % 60).padStart(2, '0');
-      return `${mm}:${ss}`;
+    // Convertir duración (ms a mm:ss)
+    const formatTime = (ms) => {
+      const seconds = Math.floor((ms / 1000) % 60);
+      const minutes = Math.floor((ms / (1000 * 60)) % 60);
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
     };
 
-    const mmss = duration && Number.isFinite(+duration) ? toMMSS(duration) : (picked?.duration || '—:—');
-    const cover = image || picked?.image || '';
+    const durationStr = formatTime(duration);
 
-    const info = `🪼 *Título:*\n${title}\n🪩 *Artista:*\n${author}\n⏳ *Duración:*\n${mmss}\n🔗 *Enlace:*\n${trackUrl}\n\n✨ Spotify Downloader`;
+    // Formatear mensaje estilo PANTHEON
+    const caption = `╭────═[ PANTHEON BOT - MD ]═─────⋆\n` +
+                    `│ 🎵 *TÍTULO:* ${title}\n` +
+                    `│ 🎙️ *ARTISTA:* ${author}\n` +
+                    `│ ⏳ *DURACIÓN:* ${durationStr}\n` +
+                    `│ ✨ *ESTADO:* Descargando...\n` +
+                    `╰───────────═┅═──────────`;
 
-    await conn.sendMessage(
-      m.chat,
-      {
-        text: info,
-        contextInfo: {
-          forwardingScore: 9999999,
-          isForwarded: true,
-          externalAdReply: {
-            showAdAttribution: true,
-            containsAutoReply: true,
-            renderLargerThumbnail: true,
-            title: 'Spotify Music',
-            mediaType: 1,
-            thumbnailUrl: cover,
-            mediaUrl: download,
-            sourceUrl: download
-          }
+    // 1. Enviar mensaje de información con la portada
+    await conn.sendMessage(m.chat, {
+      text: caption,
+      contextInfo: {
+        externalAdReply: {
+          showAdAttribution: true,
+          title: 'Spotify Player',
+          body: author,
+          mediaType: 1,
+          thumbnailUrl: image,
+          sourceUrl: isUrl ? text : 'https://www.spotify.com'
         }
-      },
-      { quoted: m }
-    );
+      }
+    }, { quoted: m });
 
-    await conn.sendMessage(
-      m.chat,
-      {
-        audio: { url: download },
-        fileName: `${title}.mp3`,
-        mimetype: 'audio/mpeg'
-      },
-      { quoted: m }
-    );
+    // 2. Enviar el archivo de audio
+    await conn.sendMessage(m.chat, {
+      audio: { url: download },
+      fileName: `${title}.mp3`,
+      mimetype: 'audio/mpeg'
+    }, { quoted: m });
 
     await m.react?.('✅');
 
   } catch (e) {
-    console.log('❌ Error spotify-reemplazo:', e?.message || e);
+    console.error('Error en Spotify Pantheon:', e);
     await m.react?.('❌');
-    await m.reply('❌ Ocurrió un error al procesar tu solicitud con la nueva API.');
+    
+    const errorMsg = `╭────═[ ERROR - PANTHEON ]═─────⋆\n` +
+                     `│ No se pudo procesar la canción.\n` +
+                     `│ Intente con otro nombre o enlace.\n` +
+                     `╰───────────═┅═──────────`;
+    await m.reply(errorMsg);
   }
 };
 
