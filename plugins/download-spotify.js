@@ -1,4 +1,4 @@
-import axios from 'axios';
+eimport axios from 'axios';
 
 const DOWNLOAD_URL = 'https://api.delirius.store/download/spotifydl';
 const SEARCH_URL   = 'https://api.delirius.store/search/spotify';
@@ -7,15 +7,15 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
   if (m.fromMe) return;
 
   if (!text) {
-    const usage = `╭──═[ PANTHEON BOT ]═──⋆
-    
+│    const usage = `╭──═[ PANTHEON BOT ]═──⋆
+│    
 │ 🎵 *SPOTIFY DOWNLOADER*
 │ Uso: ${usedPrefix + command} <nombre o enlace>
-
+│
 │ Ej:
 │ • ${usedPrefix + command} I Can't Stop Me
 │ • ${usedPrefix + command} https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn
-╰───────────═┅═──────────`;
+╰───────═┅═──────`;
     return await conn.sendMessage(m.chat, { text: usage }, { quoted: m });
   }
 
