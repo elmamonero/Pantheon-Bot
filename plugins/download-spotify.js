@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const SEARCH_API = 'https://delirius-apiofc.vercel.app/search/spotify?q=';
-const DL_API = 'https://delirius-apiofc.vercel.app/download/spotifydl?url=';
+// Nueva API proporcionada
+const BASE_API = 'https://api.delirius.store/download/spotifydl?url=https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn';
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
   // Ignorar mensaje propio para evitar bucle
@@ -16,11 +16,11 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
           `• ${usedPrefix + command} <nombre de canción o enlace>\n\n` +
           `Ejemplos:\n` +
           `• ${usedPrefix + command} TWICE TT\n` +
-          `• ${usedPrefix + command} https://open.spotify.com/track/60jFaQV7Z4boGC4ob5B5c6\n`
+          `• ${usedPrefix + command} https://open.spotify.com/track/0`
       },
       { quoted: m }
     );
-    return; // Evitar seguir el flujo si no hay texto
+    return; 
   }
 
   await m.react?.('⌛️');
@@ -31,18 +31,21 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     let picked = null;
 
     if (!isSpotifyUrl) {
-      // Búsqueda usando API
-      const sURL = `${SEARCH_API}${encodeURIComponent(text.trim())}`;
+      // Búsqueda usando la NUEVA API
+      // Nota: He mantenido la estructura de parámetros ?q=, si tu API usa otra, dímelo.
+      const sURL = `${BASE_API}/search?q=${encodeURIComponent(text.trim())}`;
       const { data: sRes } = await axios.get(sURL, { timeout: 25000 });
 
-      if (!sRes?.status || !Array.isArray(sRes?.data) || sRes.data.length === 0) throw new Error('No se encontraron resultados para tu búsqueda.');
+      if (!sRes?.status || !Array.isArray(sRes?.data) || sRes.data.length === 0) {
+          throw new Error('No se encontraron resultados.');
+      }
 
       picked = sRes.data[0];
       trackUrl = picked.url;
     }
 
-    // Descargar usando URL encontrada o entrada directa
-    const dURL = `${DL_API}${encodeURIComponent(trackUrl)}`;
+    // Descargar usando la NUEVA API
+    const dURL = `${BASE_API}/download?url=${encodeURIComponent(trackUrl)}`;
     const { data: dRes } = await axios.get(dURL, { timeout: 25000 });
 
     if (!dRes?.status || !dRes?.data?.url) {
@@ -63,7 +66,8 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
       const ss = String(totalSec % 60).padStart(2, '0');
       return `${mm}:${ss}`;
     };
-    const mmss = duration && Number.isFinite(+duration) ? toMMSS(duration) : picked?.duration || '—:—';
+
+    const mmss = duration && Number.isFinite(+duration) ? toMMSS(duration) : (picked?.duration || '—:—');
     const cover = image || picked?.image || '';
 
     const info = `🪼 *Título:*\n${title}\n🪩 *Artista:*\n${author}\n⏳ *Duración:*\n${mmss}\n🔗 *Enlace:*\n${trackUrl}\n\n✨ Spotify Downloader`;
@@ -103,9 +107,9 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     await m.react?.('✅');
 
   } catch (e) {
-    console.log('❌ Error spotify-combinado:', e?.message || e);
+    console.log('❌ Error spotify-reemplazo:', e?.message || e);
     await m.react?.('❌');
-    await m.reply('❌ Ocurrió un error al procesar tu solicitud.');
+    await m.reply('❌ Ocurrió un error al procesar tu solicitud con la nueva API.');
   }
 };
 
