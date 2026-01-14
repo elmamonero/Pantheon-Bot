@@ -1,56 +1,108 @@
-import fetch from 'node-fetch'
-import yts from 'yt-search'
+import fs from 'fs';
+import path from 'path';
+import yts from 'yt-search';
 
-let handler = async (m, { conn, command, text, usedPrefix }) => {
-    if (!text) return m.reply(`*🎵 PLAY*\n\n*➜ Uso:* ${usedPrefix + command} <link o título>`)
+const handler = async (m, { conn, args, command }) => {
+  if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
-    let urlYt = text.trim()
-    m.reply('*⏳ 🎵 Preparando canción...*')
+  let url = args[0];
+  const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
-    try {
-        let apiUrl
-
-        // Si es URL directa
-        const isUrl = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/i.test(urlYt)
-        if (isUrl) {
-            apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(urlYt)}`
-        } else {
-            // Búsqueda por texto CON yt-search
-            const search = await yts(urlYt)
-            if (!search.videos.length) throw new Error('❌ No se encontraron resultados')
-            apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(search.videos[0].url)}`
-        }
-
-        let response = await fetch(apiUrl)
-        let data = await response.json()
-
-        if (!data.status) throw new Error('❌ Canción no disponible')
-
-        let info = data.data
-
-        let texto = `*🎵 ${info.title}*\n\n🎤 *Artista:* ${info.author}\n📊 *Calidad:* ${info.download.quality}\n📦 *Tamaño:* ${info.download.size}\n⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')} min`
-
-        // Portada
-        await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
-
-        // ✅ URL DIRECTA (sin buffer = sin 403)
-        await conn.sendMessage(m.chat, {
-            audio: { url: info.download.url },
-            mimetype: 'audio/mpeg',
-            fileName: `${info.title.slice(0,30)}.mp3`,
-            ptt: false
-        }, { quoted: m })
-
-        m.reply('✅ *¡Listo!*')
-
-    } catch (error) {
-        console.error(error)
-        m.reply(`*❌ Error*\n${error.message}`)
+  if (!isUrl) {
+    const searchResults = await yts(args.join(' '));
+    if (!searchResults.videos.length) {
+      return m.reply('No se encontraron resultados para tu búsqueda');
     }
-}
+    url = searchResults.videos[0].url;
+  }
 
-handler.command = ['play']
-handler.limit = true
-handler.group = true
+  try {
+    await m.react('🕒');
 
-export default handler
+    // Nueva API davidcyriltech.my.id/play con el esquema correcto
+    const query = encodeURIComponent(args.join(' '));
+    const apiUrl = `https://apis.davidcyriltech.my.id/play?query=${query}`;
+    console.log('Llamando a API con query:', apiUrl);
+
+    const apiResponse = await fetch(apiUrl);
+    const data = await apiResponse.json();
+
+    console.log('Respuesta completa de la API:', JSON.stringify(data, null, 2));
+
+    if (!data.status || !data.result) {
+      await m.react('✖️');
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio. Respuesta: ${data.message || 'API no disponible'}`);
+    }
+
+    const { title, thumbnail, download_url: audioUrl, video_url } = data.result;
+    
+    if (!audioUrl) {
+      await m.react('✖️');
+      return m.reply('*✖️ Error:* No se pudo obtener el enlace de descarga del audio');
+    }
+
+    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
+
+    console.log('Enlace de audio obtenido:', audioUrl);
+
+    const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
+
+    // Descargar el audio usando fetch
+    const audioResponse = await fetch(audioUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': 'https://youtube.com/',
+      },
+    });
+
+    if (!audioResponse.ok) {
+      throw new Error(`Error en descarga: ${audioResponse.status} ${audioResponse.statusText}`);
+    }
+
+    const arrayBuffer = await audioResponse.arrayBuffer();
+    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
+
+    // Verificar si el archivo se descargó correctamente (tamaño > 0)
+    const stats = fs.statSync(dest);
+    if (stats.size === 0) {
+      fs.unlinkSync(dest);
+      throw new Error('Archivo descargado vacío');
+    }
+
+    console.log(`Archivo descargado exitosamente: ${stats.size} bytes (~${(stats.size / (1024 * 1024)).toFixed(2)} MB)`);
+
+    // Enviar imagen de thumbnail si existe
+    if (thumbnail) {
+      try {
+        const thumbBuffer = await (await fetch(thumbnail)).arrayBuffer();
+        await conn.sendMessage(m.chat, {
+          image: Buffer.from(thumbBuffer),
+          caption: `🎵 *${title}*\n\n📎 URL: ${video_url || url}\n⏱️ Duración: ${data.result.duration}\n👀 Vistas: ${(data.result.views / 1000000).toFixed(1)}M\n\nDescarga MP3 desde YouTube`,
+          footer: 'Pantheon Bot',
+        }, { quoted: m });
+      } catch (thumbError) {
+        console.log('Error enviando thumbnail:', thumbError.message);
+      }
+    }
+
+    // Enviar el audio como mensaje de audio
+    await conn.sendMessage(m.chat, {
+      audio: fs.readFileSync(dest),
+      mimetype: 'audio/mpeg',
+      fileName,
+    }, { quoted: m });
+
+    // Limpiar archivo temporal
+    fs.unlinkSync(dest);
+    await m.react('✅');
+  } catch (error) {
+    console.error('Error al descargar MP3:', error.message || error);
+    await m.react('✖️');
+    m.reply('⚠️ La descarga ha fallado, posible error en la API o video muy pesado.');
+  }
+};
+
+handler.help = ['play <nombre|URL>'];
+handler.command = ['play'];
+handler.tags = ['descargas'];
+export default handler;
