@@ -9,7 +9,6 @@ const handler = async (m, { conn, args, command }) => {
   const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
-    await m.reply('🔎 Buscando...');
     const searchResults = await yts(args.join(' '));
     if (!searchResults.videos.length) {
       return m.reply('No se encontraron resultados para tu búsqueda');
@@ -20,7 +19,6 @@ const handler = async (m, { conn, args, command }) => {
   try {
     await m.react('🕒');
 
-    // API davidcyriltech - timeout de 15 segundos
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -58,9 +56,7 @@ const handler = async (m, { conn, args, command }) => {
 
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
-    // 🚀 MÉTODO SIMPLE Y RÁPIDO - arrayBuffer directo
-    await m.reply('📥 Descargando audio...');
-    
+    // Descarga silenciosa en background
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
     console.log('Descargando audio desde:', audioUrl);
@@ -70,46 +66,41 @@ const handler = async (m, { conn, args, command }) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://youtube.com/',
       },
-      signal: AbortSignal.timeout(30000) // 30s timeout para descarga
+      signal: AbortSignal.timeout(30000)
     });
 
     if (!audioResponse.ok) {
       throw new Error(`Error descarga: ${audioResponse.status}`);
     }
 
-    // Método simple y compatible con node-fetch
     const arrayBuffer = await audioResponse.arrayBuffer();
     fs.writeFileSync(dest, Buffer.from(arrayBuffer));
 
-    // Verificar archivo
     const stats = fs.statSync(dest);
     if (stats.size === 0 || stats.size < 1024) {
       fs.unlinkSync(dest);
       throw new Error('Archivo muy pequeño o vacío');
     }
 
-    console.log(`✅ Descargado: ${(stats.size/1024/1024).toFixed(1)}MB en ${(stats.size/1000).toFixed(0)}KB`);
-
-    // Thumbnail paralelo (no bloquea)
+    // ✅ SOLO THUMBNAIL + INFO + AUDIO (sin mensajes intermedios)
     if (thumbnail) {
-      (async () => {
-        try {
-          const thumbResponse = await fetch(thumbnail, { 
-            signal: AbortSignal.timeout(5000) 
-          });
-          const thumbBuffer = await thumbResponse.arrayBuffer();
-          await conn.sendMessage(m.chat, {
-            image: Buffer.from(thumbBuffer),
-            caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB`,
-            footer: 'Pantheon Bot',
-          }, { quoted: m });
-        } catch (e) {
-          console.log('Thumbnail falló:', e.message);
-        }
-      })();
+      try {
+        const thumbResponse = await fetch(thumbnail, { 
+          signal: AbortSignal.timeout(5000) 
+        });
+        const thumbBuffer = await thumbResponse.arrayBuffer();
+        await conn.sendMessage(m.chat, {
+          image: Buffer.from(thumbBuffer),
+          caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB`,
+          footer: 'Pantheon Bot',
+        }, { quoted: m });
+      } catch (e) {
+        console.log('Thumbnail falló:', e.message);
+        // Fallback: enviar solo audio si falla thumbnail
+      }
     }
 
-    // ⚡ ENVÍO DIRECTO DESDE URL (más rápido que archivo local)
+    // Enviar audio inmediatamente
     await conn.sendMessage(m.chat, {
       audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
