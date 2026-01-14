@@ -1,9 +1,5 @@
 import fetch from 'node-fetch'
 import yts from 'yt-search'
-import { ogmp3 } from '../lib/youtubedl.js'
-
-const LimitAud = 725 * 1024 * 1024 // 725MB
-let tempStorage = {}
 
 let handler = async (m, { conn, command, text, usedPrefix }) => {
     if (!text) return m.reply(`*🎵 PLAY*\n\n*➜ Uso:* ${usedPrefix + command} <link o título>`)
@@ -12,48 +8,34 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
     m.reply('*⏳ 🎵 Preparando canción...*')
 
     try {
-        let info, downloadUrl
+        let apiUrl, info
 
-        // Si es URL de YouTube directo
-        if (ogmp3.isUrl(urlYt)) {
-            const result = await ogmp3.download(urlYt, '128', 'audio') // 128kbps liviano
-            if (!result.status) throw new Error(result.error)
-            
-            info = result.result
-            downloadUrl = info.download
+        // Si es URL directa
+        const isUrl = /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/i.test(urlYt)
+        if (isUrl) {
+            apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(urlYt)}`
         } else {
-            // Si es búsqueda por texto
+            // Búsqueda por texto
             const search = await yts(urlYt)
             if (!search.videos.length) throw new Error('❌ No se encontraron resultados')
-            
-            const video = search.videos[0]
-            const result = await ogmp3.download(video.url, '128', 'audio')
-            if (!result.status) throw new Error(result.error)
-            
-            info = result.result
-            downloadUrl = info.download
+            apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(search.videos[0].url)}`
         }
 
-        // Descargar el MP3 como Buffer
-        let audioRes = await fetch(downloadUrl)
-        if (!audioRes.ok) throw new Error('No se pudo descargar el audio')
-        
-        let audioBuffer = await audioRes.buffer()
-        
-        // Verificar límite de tamaño
-        if (audioBuffer.length > LimitAud) {
-            throw new Error('❌ Archivo muy pesado (>725MB)')
-        }
+        let response = await fetch(apiUrl)
+        let data = await response.json()
 
-        // Info formateada
-        let texto = `*🎵 ${info.title}*\n\n🎤 *Artista:* ${info.title.split(' - ')[0] || 'Desconocido'}\n📊 *Calidad:* ${info.quality}kbps\n⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')}min`
+        if (!data.status) throw new Error('❌ Canción no disponible')
+
+        info = data.data
+
+        let texto = `*🎵 ${info.title}*\n\n🎤 *Artista:* ${info.author}\n📊 *Calidad:* ${info.download.quality}\n📦 *Tamaño:* ${info.download.size}\n⏱️ *Duración:* ${Math.floor(info.duration/60)}:${(info.duration%60).toString().padStart(2,'0')} min`
 
         // Enviar portada con info
-        await conn.sendFile(m.chat, info.thumbnail, 'portada.jpg', texto, m)
+        await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
 
-        // ✅ Enviar el MP3 como audio real (128kbps = liviano)
+        // ✅ URL DIRECTA (sin buffer = sin 403)
         await conn.sendMessage(m.chat, {
-            audio: audioBuffer,
+            audio: { url: info.download.url },  // ← URL directa
             mimetype: 'audio/mpeg',
             fileName: `${info.title.slice(0,30)}.mp3`,
             ptt: false
@@ -63,7 +45,7 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
 
     } catch (error) {
         console.error(error)
-        m.reply(`*❌ Error al procesar canción*\n\n${error.message}\n\nVerifica que el enlace/título sea correcto`)
+        m.reply(`*❌ Error*\n\n${error.message}\n\n🔗 Enlace directo:\n${info?.download?.url || 'https://wa.me/573108619948'}`)
     }
 }
 
