@@ -25,7 +25,6 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     let spotifyUrl = text.trim();
     const isUrl = /https?:\/\/open\.spotify\.com\//i.test(text);
 
-    // 1) SI ES TEXTO → BUSCAR EN /search/spotify
     if (!isUrl) {
       const { data: search } = await axios.get(
         `${SEARCH_URL}?q=${encodeURIComponent(text.trim())}&limit=1`,
@@ -40,7 +39,6 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
       }
     }
 
-    // 2) DESCARGAR CON /download/spotifydl?url=
     const { data: response } = await axios.get(
       `${DOWNLOAD_URL}?url=${encodeURIComponent(spotifyUrl)}`,
       { timeout: 30000 }
@@ -81,11 +79,11 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
       }
     }, { quoted: m });
 
-    // 🎵 ARCHIVO LIVIANO: opus 64kbps (-70% tamaño)
+    // ✅ MP3 FUNCIONAL (nombres cortos = menos pesados)
     await conn.sendMessage(m.chat, {
       audio: { url: download },
-      fileName: `${title.slice(0,30)}.opus`,
-      mimetype: 'audio/ogg; codecs=opus'
+      fileName: `${title.slice(0,25)}.mp3`,
+      mimetype: 'audio/mpeg'
     }, { quoted: m });
 
     await m.react?.('✅');
