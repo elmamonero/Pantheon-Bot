@@ -7,7 +7,8 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
   if (m.fromMe) return;
 
   if (!text) {
-    const usage = `╭──═[ PANTHEON BOT ]═───⋆
+    const usage = `╭──═[ PANTHEON BOT ]═──⋆
+    
 │ 🎵 *SPOTIFY DOWNLOADER*
 │ Uso: ${usedPrefix + command} <nombre o enlace>
 
