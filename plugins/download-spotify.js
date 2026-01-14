@@ -7,7 +7,7 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
   if (m.fromMe) return;
 
   if (!text) {
-│    const usage = `
+   const usage = `
 ╭──═[ PANTHEON BOT ]═──⋆
 │    
 │ 🎵 *SPOTIFY DOWNLOADER*
