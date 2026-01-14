@@ -1,71 +1,80 @@
 import axios from 'axios';
 
-// Tu nueva API
-const BASE_URL = 'https://api.delirius.store/download/spotifydl?url=https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn';
+// API Base (ajustada para búsqueda y descarga separada si es necesario)
+const SEARCH_API = 'https://api.delirius.store/download/spotifydl?url=https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn'; // Endpoint de búsqueda
+const DOWNLOAD_API = 'https://api.delirius.store/download/spotifydl?url=https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn'; // Endpoint de descarga
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
   if (m.fromMe) return;
 
   if (!text) {
-    const usage = `╭────═[ PANTHEON BOT - MD ]═─────⋆\n` +
-                  `│ 🎵 *SPOTIFY DOWNLOADER*\n` +
-                  `│\n` +
-                  `│ • ${usedPrefix + command} <nombre de canción>\n` +
-                  `│ • ${usedPrefix + command} <enlace de spotify>\n` +
-                  `╰───────────═┅═──────────`;
-    return await conn.sendMessage(m.chat, { text: usage }, { quoted: m });
+    return await conn.sendMessage(m.chat, { 
+      text: `╭────═[ PANTHEON BOT ]═─────⋆\n│ Escriba el nombre de la canción.\n╰───────────═┅═──────────` 
+    }, { quoted: m });
   }
 
   await m.react?.('⌛️');
 
   try {
-    // DETECCIÓN: Si el texto contiene "spotify.com", usa el parámetro 'url', si no, usa 'q' (búsqueda)
+    let spotifyUrl = text.trim();
     const isUrl = /https?:\/\/open\.spotify\.com\//i.test(text);
-    const apiEndpoint = `${BASE_URL}?${isUrl ? 'url' : 'q'}=${encodeURIComponent(text.trim())}`;
 
-    // Petición a la API
-    const { data: response } = await axios.get(apiEndpoint, { timeout: 30000 });
-
-    // Validar esquema: { status: true, data: {...} }
-    if (!response || response.status !== true || !response.data) {
-      throw new Error('No se encontró la canción o la API falló.');
+    // --- PASO 1: SI NO ES LINK, BUSCAR EL LINK ---
+    if (!isUrl) {
+      const searchRes = await axios.get(`${SEARCH_API}?q=${encodeURIComponent(text)}`);
+      
+      // Intentamos extraer el link de la búsqueda
+      // Si la API devuelve una lista en 'data', tomamos el primero. 
+      // Si devuelve un objeto directo, tomamos ese.
+      const results = searchRes.data.data || searchRes.data.result;
+      
+      if (Array.isArray(results) && results.length > 0) {
+        spotifyUrl = results[0].url || results[0].link;
+      } else if (results && (results.url || results.link)) {
+        spotifyUrl = results.url || results.link;
+      } else {
+        throw new Error('No se encontraron resultados de búsqueda.');
+      }
     }
 
-    const { title, author, duration, image, download } = response.data;
+    // --- PASO 2: DESCARGAR CON EL LINK OBTENIDO ---
+    const downloadRes = await axios.get(`${DOWNLOAD_API}?url=${encodeURIComponent(spotifyUrl)}`);
 
-    // Convertir duración de ms a mm:ss
+    if (!downloadRes.data || downloadRes.data.status !== true) {
+      throw new Error('La API de descarga no respondió correctamente.');
+    }
+
+    const { title, author, duration, image, download } = downloadRes.data.data;
+
+    // Formatear Duración
     const formatTime = (ms) => {
-      if (!ms) return '--:--';
-      const seconds = Math.floor((ms / 1000) % 60);
-      const minutes = Math.floor((ms / (1000 * 60)) % 60);
-      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      const min = Math.floor(ms / 60000);
+      const sec = ((ms % 60000) / 1000).toFixed(0);
+      return `${min}:${(sec < 10 ? '0' : '')}${sec}`;
     };
 
-    const durationStr = formatTime(duration);
+    const info = `╭────═[ PANTHEON BOT ]═─────⋆\n` +
+                 `│ 🎵 *TÍTULO:* ${title}\n` +
+                 `│ 🎙️ *ARTISTA:* ${author}\n` +
+                 `│ ⏳ *DURACIÓN:* ${formatTime(duration)}\n` +
+                 `╰───────────═┅═──────────`;
 
-    // Mensaje de información
-    const caption = `╭────═[ PANTHEON BOT - MD ]═─────⋆\n` +
-                    `│ 🎵 *TÍTULO:* ${title}\n` +
-                    `│ 🎙️ *ARTISTA:* ${author}\n` +
-                    `│ ⏳ *DURACIÓN:* ${durationStr}\n` +
-                    `│ 📂 *TIPO:* ${isUrl ? 'Enlace' : 'Búsqueda'}\n` +
-                    `╰───────────═┅═──────────`;
-
+    // Enviar Info con Portada
     await conn.sendMessage(m.chat, {
-      text: caption,
+      text: info,
       contextInfo: {
         externalAdReply: {
           showAdAttribution: true,
-          title: 'Spotify Player',
+          title: 'Spotify Downloader',
           body: author,
-          mediaType: 1,
           thumbnailUrl: image,
-          sourceUrl: isUrl ? text : 'https://www.spotify.com'
+          sourceUrl: spotifyUrl,
+          mediaType: 1
         }
       }
     }, { quoted: m });
 
-    // Envío del Audio
+    // Enviar Audio
     await conn.sendMessage(m.chat, {
       audio: { url: download },
       fileName: `${title}.mp3`,
@@ -75,9 +84,9 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     await m.react?.('✅');
 
   } catch (e) {
-    console.error('Error:', e);
+    console.error('Error detallado:', e);
     await m.react?.('❌');
-    await m.reply(`╭────═[ ERROR ]═─────⋆\n│ No se pudo encontrar: "${text}"\n╰───────────═┅═──────────`);
+    await m.reply(`╭────═[ ERROR ]═─────⋆\n│ No se pudo obtener la canción.\n│ Detalle: ${e.message}\n╰───────────═┅═──────────`);
   }
 };
 
