@@ -18,7 +18,7 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
     m.reply('*⏳ 🔎 Buscando...*')
 
     try {
-        // Búsqueda con yts
+        // Búsqueda
         const search = await yts(text.trim())
         if (!search.videos.length) throw new Error('❌ No se encontraron resultados')
 
@@ -39,8 +39,7 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
             image: { url: yt.thumbnail },
             caption: texto,
             buttons: [
-                { buttonId: `.playaudio ${yt.url}`, buttonText: { displayText: '🎵 AUDIO' }, type: 1 },
-                { buttonId: `.playvideo ${yt.url}`, buttonText: { displayText: '🎥 VIDEO' }, type: 1 }
+                { buttonId: `.playaudio ${yt.url}`, buttonText: { displayText: '🎵 AUDIO' }, type: 1 }
             ]
         }, { quoted: m })
 
@@ -56,51 +55,22 @@ handler.before = async (m, { conn }) => {
     const userData = tempStorage[m.sender]
     if (!userData?.url) return m.reply('❌ Primero usa .play <canción>')
 
-    m.reply('*⏳ 🎵 Descargando...*')
+    m.reply('*⏳ 🎵 Procesando con youtubedl...*')
 
     try {
-        // MÚLTIPLES APIs como tu ejemplo
-        const audioApis = [
-            // 1. ogmp3 (tu lib)
-            async () => {
-                const result = await ogmp3.download(userData.url, '128', 'audio')
-                return result.status ? result.result.download : null
-            },
-            // 2. Delirius
-            async () => {
-                const res = await fetch(`https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(userData.url)}`)
-                const data = await res.json().catch(() => ({}))
-                return data.status && data.data?.download?.url ? data.data.download.url : null
-            },
-            // 3. Zenkey
-            async () => {
-                const res = await fetch(`https://api.zenkey.my.id/api/download/ytmp3?apikey=zenkey&url=${userData.url}`)
-                const data = await res.json().catch(() => ({}))
-                return data.result?.download?.url || null
-            },
-            // 4. Neoxr
-            async () => {
-                const res = await fetch(`https://api.neoxr.eu/api/youtube?url=${userData.url}&type=audio&quality=128kbps&apikey=GataDios`)
-                const data = await res.json().catch(() => ({}))
-                return data.data?.url || null
-            }
-        ]
-
-        let downloadUrl = null
-        for (const api of audioApis) {
-            try {
-                downloadUrl = await api()
-                if (downloadUrl) break
-            } catch (e) {
-                console.log('API falló:', e.message)
-                continue
-            }
+        // ✅ SOLO ogmp3 (tu lib estable)
+        const result = await ogmp3.download(userData.url, '128', 'audio')
+        
+        if (!result.status) {
+            throw new Error(result.error || 'ogmp3 falló')
         }
 
-        if (!downloadUrl) throw new Error('❌ Todas las APIs fallaron')
+        const downloadUrl = result.result.download
 
         // Verificar tamaño
         const fileSize = await getFileSize(downloadUrl)
+        console.log(`Tamaño: ${fileSize/1024/1024}MB`)
+
         if (fileSize > LimitAud) {
             await conn.sendMessage(m.chat, {
                 document: { url: downloadUrl },
@@ -115,10 +85,11 @@ handler.before = async (m, { conn }) => {
             }, { quoted: m })
         }
 
-        m.reply('✅ *¡Listo!*')
+        m.reply('✅ *¡Listo con youtubedl!* 🎵')
 
     } catch (error) {
-        m.reply(`*❌ Error*\n${error.message}`)
+        console.error('ogmp3 error:', error)
+        m.reply(`*❌ Error con youtubedl*\n${error.message}`)
     } finally {
         delete tempStorage[m.sender]
     }
