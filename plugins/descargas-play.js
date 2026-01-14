@@ -9,6 +9,7 @@ const handler = async (m, { conn, args, command }) => {
   const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
+    await m.reply('🔎 Buscando...');
     const searchResults = await yts(args.join(' '));
     if (!searchResults.videos.length) {
       return m.reply('No se encontraron resultados para tu búsqueda');
@@ -19,86 +20,145 @@ const handler = async (m, { conn, args, command }) => {
   try {
     await m.react('🕒');
 
-    // Nueva API davidcyriltech.my.id/play con el esquema correcto
+    // API davidcyriltech - timeout de 15 segundos
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     const query = encodeURIComponent(args.join(' '));
     const apiUrl = `https://apis.davidcyriltech.my.id/play?query=${query}`;
-    console.log('Llamando a API con query:', apiUrl);
+    
+    console.log('Llamando a API:', apiUrl);
 
-    const apiResponse = await fetch(apiUrl);
+    const apiResponse = await fetch(apiUrl, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!apiResponse.ok) {
+      throw new Error(`API error: ${apiResponse.status}`);
+    }
+
     const data = await apiResponse.json();
-
-    console.log('Respuesta completa de la API:', JSON.stringify(data, null, 2));
 
     if (!data.status || !data.result) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el audio. Respuesta: ${data.message || 'API no disponible'}`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio.`);
     }
 
-    const { title, thumbnail, download_url: audioUrl, video_url } = data.result;
+    const { title, thumbnail, download_url: audioUrl, video_url, duration } = data.result;
     
     if (!audioUrl) {
       await m.react('✖️');
-      return m.reply('*✖️ Error:* No se pudo obtener el enlace de descarga del audio');
+      return m.reply('*✖️ Error:* No hay enlace de descarga disponible');
     }
 
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
-    console.log('Enlace de audio obtenido:', audioUrl);
-
+    // Pre-descarga con progreso (streaming chunks)
+    await m.reply('📥 Descargando audio...');
+    
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
-
-    // Descargar el audio usando fetch
+    
     const audioResponse = await fetch(audioUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://youtube.com/',
-      },
+        'Accept': 'audio/webm,audio/ogg,audio/*',
+      }
     });
 
-    if (!audioResponse.ok) {
-      throw new Error(`Error en descarga: ${audioResponse.status} ${audioResponse.statusText}`);
+    if (!audioResponse.ok || !audioResponse.body) {
+      throw new Error(`Error descarga: ${audioResponse.status}`);
     }
 
-    const arrayBuffer = await audioResponse.arrayBuffer();
-    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
-
-    // Verificar si el archivo se descargó correctamente (tamaño > 0)
-    const stats = fs.statSync(dest);
-    if (stats.size === 0) {
-      fs.unlinkSync(dest);
-      throw new Error('Archivo descargado vacío');
-    }
-
-    console.log(`Archivo descargado exitosamente: ${stats.size} bytes (~${(stats.size / (1024 * 1024)).toFixed(2)} MB)`);
-
-    // Enviar imagen de thumbnail si existe
-    if (thumbnail) {
+    // Streaming download para mayor velocidad
+    const writer = fs.createWriteStream(dest);
+    const contentLength = audioResponse.headers.get('content-length');
+    let downloaded = 0;
+    
+    const reader = audioResponse.body.getReader();
+    const streamToFs = async () => {
       try {
-        const thumbBuffer = await (await fetch(thumbnail)).arrayBuffer();
-        await conn.sendMessage(m.chat, {
-          image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n\n📎 URL: ${video_url || url}\n⏱️ Duración: ${data.result.duration}\n👀 Vistas: ${(data.result.views / 1000000).toFixed(1)}M\n\nDescarga MP3 desde YouTube`,
-          footer: 'Pantheon Bot',
-        }, { quoted: m });
-      } catch (thumbError) {
-        console.log('Error enviando thumbnail:', thumbError.message);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          writer.write(value);
+          downloaded += value.length;
+          
+          // Update progress cada 1MB
+          if (contentLength && downloaded % 1048576 === 0) {
+            const percent = ((downloaded / parseInt(contentLength)) * 100).toFixed(1);
+            console.log(`Progreso: ${percent}% (${(downloaded/1024/1024).toFixed(1)}MB)`);
+          }
+        }
+        writer.end();
+      } catch (err) {
+        writer.destroy(err);
+        throw err;
       }
+    };
+
+    await streamToFs();
+
+    // Esperar a que termine la escritura
+    await new Promise((resolve) => writer.on('finish', resolve));
+
+    // Verificar archivo
+    const stats = fs.statSync(dest);
+    if (stats.size === 0 || stats.size < 1024) {
+      fs.unlinkSync(dest);
+      throw new Error('Archivo muy pequeño o vacío');
     }
 
-    // Enviar el audio como mensaje de audio
+    console.log(`✅ Descargado: ${stats.size/1024/1024}MB`);
+
+    // Enviar thumbnail RÁPIDO (paralelo)
+    if (thumbnail) {
+      (async () => {
+        try {
+          const thumbResponse = await fetch(thumbnail, { 
+            signal: AbortSignal.timeout(5000) 
+          });
+          const thumbBuffer = await thumbResponse.arrayBuffer();
+          await conn.sendMessage(m.chat, {
+            image: Buffer.from(thumbBuffer),
+            caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}`,
+            footer: 'Pantheon Bot',
+          }, { quoted: m });
+        } catch (e) {
+          console.log('Thumbnail falló:', e.message);
+        }
+      })();
+    }
+
+    // Enviar audio inmediatamente
     await conn.sendMessage(m.chat, {
-      audio: fs.readFileSync(dest),
+      audio: { url: audioUrl }, // Enviar directo desde URL (más rápido)
       mimetype: 'audio/mpeg',
       fileName,
     }, { quoted: m });
 
-    // Limpiar archivo temporal
-    fs.unlinkSync(dest);
+    // Cleanup solo si se guardó localmente
+    if (fs.existsSync(dest)) {
+      fs.unlinkSync(dest);
+    }
+    
     await m.react('✅');
+    
   } catch (error) {
-    console.error('Error al descargar MP3:', error.message || error);
+    if (error.name === 'AbortError') {
+      await m.react('⏰');
+      return m.reply('⏰ *Timeout* - La canción tarda mucho, prueba otra.');
+    }
+    
+    console.error('Error completo:', error);
     await m.react('✖️');
-    m.reply('⚠️ La descarga ha fallado, posible error en la API o video muy pesado.');
+    m.reply('⚠️ Falló la descarga. Prueba con otra canción.');
   }
 };
 
