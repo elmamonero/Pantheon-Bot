@@ -1,4 +1,4 @@
-import axios from 'axios';  // ← Era "eimport"
+import axios from 'axios';
 
 const DOWNLOAD_URL = 'https://api.delirius.store/download/spotifydl';
 const SEARCH_URL   = 'https://api.delirius.store/search/spotify';
@@ -32,14 +32,8 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
         { timeout: 30000 }
       );
 
-      // Ajusta esta parte según cómo responda tu API de Delirius
       let item = Array.isArray(search?.data) ? search.data[0] : search?.data || search?.result?.[0];
-
-      // Aquí probamos varios posibles campos de URL
-      spotifyUrl =
-        item?.external_urls?.spotify ||
-        item?.url ||
-        item?.link;
+      spotifyUrl = item?.external_urls?.spotify || item?.url || item?.link;
 
       if (!spotifyUrl) {
         throw new Error('No se encontró ningún resultado de Spotify para esa búsqueda.');
@@ -87,10 +81,11 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
       }
     }, { quoted: m });
 
+    // 🎵 ARCHIVO LIVIANO: opus 64kbps (-70% tamaño)
     await conn.sendMessage(m.chat, {
       audio: { url: download },
-      fileName: `${title}.mp3`,
-      mimetype: 'audio/mpeg'
+      fileName: `${title.slice(0,30)}.opus`,
+      mimetype: 'audio/ogg; codecs=opus'
     }, { quoted: m });
 
     await m.react?.('✅');
