@@ -58,55 +58,28 @@ const handler = async (m, { conn, args, command }) => {
 
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
-    // Pre-descarga con progreso (streaming chunks)
+    // 🚀 MÉTODO SIMPLE Y RÁPIDO - arrayBuffer directo
     await m.reply('📥 Descargando audio...');
     
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
+    console.log('Descargando audio desde:', audioUrl);
+
     const audioResponse = await fetch(audioUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://youtube.com/',
-        'Accept': 'audio/webm,audio/ogg,audio/*',
-      }
+      },
+      signal: AbortSignal.timeout(30000) // 30s timeout para descarga
     });
 
-    if (!audioResponse.ok || !audioResponse.body) {
+    if (!audioResponse.ok) {
       throw new Error(`Error descarga: ${audioResponse.status}`);
     }
 
-    // Streaming download para mayor velocidad
-    const writer = fs.createWriteStream(dest);
-    const contentLength = audioResponse.headers.get('content-length');
-    let downloaded = 0;
-    
-    const reader = audioResponse.body.getReader();
-    const streamToFs = async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          writer.write(value);
-          downloaded += value.length;
-          
-          // Update progress cada 1MB
-          if (contentLength && downloaded % 1048576 === 0) {
-            const percent = ((downloaded / parseInt(contentLength)) * 100).toFixed(1);
-            console.log(`Progreso: ${percent}% (${(downloaded/1024/1024).toFixed(1)}MB)`);
-          }
-        }
-        writer.end();
-      } catch (err) {
-        writer.destroy(err);
-        throw err;
-      }
-    };
-
-    await streamToFs();
-
-    // Esperar a que termine la escritura
-    await new Promise((resolve) => writer.on('finish', resolve));
+    // Método simple y compatible con node-fetch
+    const arrayBuffer = await audioResponse.arrayBuffer();
+    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
 
     // Verificar archivo
     const stats = fs.statSync(dest);
@@ -115,9 +88,9 @@ const handler = async (m, { conn, args, command }) => {
       throw new Error('Archivo muy pequeño o vacío');
     }
 
-    console.log(`✅ Descargado: ${stats.size/1024/1024}MB`);
+    console.log(`✅ Descargado: ${(stats.size/1024/1024).toFixed(1)}MB en ${(stats.size/1000).toFixed(0)}KB`);
 
-    // Enviar thumbnail RÁPIDO (paralelo)
+    // Thumbnail paralelo (no bloquea)
     if (thumbnail) {
       (async () => {
         try {
@@ -127,7 +100,7 @@ const handler = async (m, { conn, args, command }) => {
           const thumbBuffer = await thumbResponse.arrayBuffer();
           await conn.sendMessage(m.chat, {
             image: Buffer.from(thumbBuffer),
-            caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}`,
+            caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB`,
             footer: 'Pantheon Bot',
           }, { quoted: m });
         } catch (e) {
@@ -136,14 +109,14 @@ const handler = async (m, { conn, args, command }) => {
       })();
     }
 
-    // Enviar audio inmediatamente
+    // ⚡ ENVÍO DIRECTO DESDE URL (más rápido que archivo local)
     await conn.sendMessage(m.chat, {
-      audio: { url: audioUrl }, // Enviar directo desde URL (más rápido)
+      audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
       fileName,
     }, { quoted: m });
 
-    // Cleanup solo si se guardó localmente
+    // Cleanup
     if (fs.existsSync(dest)) {
       fs.unlinkSync(dest);
     }
@@ -153,7 +126,7 @@ const handler = async (m, { conn, args, command }) => {
   } catch (error) {
     if (error.name === 'AbortError') {
       await m.react('⏰');
-      return m.reply('⏰ *Timeout* - La canción tarda mucho, prueba otra.');
+      return m.reply('⏰ *Timeout* - Canción muy pesada, prueba otra.');
     }
     
     console.error('Error completo:', error);
