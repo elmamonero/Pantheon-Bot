@@ -1,4 +1,4 @@
-eimport axios from 'axios';
+import axios from 'axios';  // ← Era "eimport"
 
 const DOWNLOAD_URL = 'https://api.delirius.store/download/spotifydl';
 const SEARCH_URL   = 'https://api.delirius.store/search/spotify';
