@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const MAX_SIZE_MB = 50;
+const MAX_SIZE_MB = 15;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const handler = async (m, { conn, args, command }) => {
@@ -47,14 +47,14 @@ const handler = async (m, { conn, args, command }) => {
 
     if (!data.status || !data.result) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el audio.`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio.\n\n*Pantheon Bot*`);
     }
 
     const { title, thumbnail, download_url: audioUrl, video_url, duration } = data.result;
     
     if (!audioUrl) {
       await m.react('✖️');
-      return m.reply('*✖️ Error:* No hay enlace de descarga disponible');
+      return m.reply('*✖️ Error:* No hay enlace de descarga disponible\n\n*Pantheon Bot*');
     }
 
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
@@ -85,7 +85,7 @@ const handler = async (m, { conn, args, command }) => {
     fs.writeFileSync(dest, Buffer.from(arrayBuffer));
     const stats = fs.statSync(dest);
 
-    // Thumbnail + info CON PANTHEON BOT SIEMPRE
+    // Thumbnail + info CON PANTHEON BOT COMO TEXTO
     if (thumbnail) {
       try {
         const thumbResponse = await fetch(thumbnail, { 
@@ -94,18 +94,16 @@ const handler = async (m, { conn, args, command }) => {
         const thumbBuffer = await thumbResponse.arrayBuffer();
         await conn.sendMessage(m.chat, {
           image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB`,
-          footer: 'Pantheon Bot',  // ← SIEMPRE visible
+          caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
         }, { quoted: m });
       } catch (e) {
         console.log('Thumbnail falló:', e.message);
-        // Fallback: enviar info SIN imagen pero CON footer
+        // Fallback texto
         await conn.sendMessage(m.chat, {
           text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
         }, { quoted: m });
       }
     } else {
-      // Si no hay thumbnail, enviar solo texto con footer
       await conn.sendMessage(m.chat, {
         text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
       }, { quoted: m });
