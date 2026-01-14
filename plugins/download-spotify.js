@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// SIN URL FIJA
-const BASE_URL = 'https://api.delirius.store/download/spotifydl';
+const DOWNLOAD_URL = 'https://api.delirius.store/download/spotifydl';
+const SEARCH_URL   = 'https://api.delirius.store/search/spotify';
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
   if (m.fromMe) return;
@@ -13,8 +13,9 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
 │ Use el comando de la siguiente forma:
 │ • ${usedPrefix + command} <nombre o enlace>
 │
-│ Ejemplo:
+│ Ejemplos:
 │ • ${usedPrefix + command} I Can't Stop Me
+│ • ${usedPrefix + command} https://open.spotify.com/track/37ZtpRBkHcaq6hHy0X98zn
 ╰───────────═┅═──────────`;
     return await conn.sendMessage(m.chat, { text: usage }, { quoted: m });
   }
@@ -22,14 +23,35 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
   await m.react?.('⌛️');
 
   try {
+    let spotifyUrl = text.trim();
     const isUrl = /https?:\/\/open\.spotify\.com\//i.test(text);
-    const query = encodeURIComponent(text.trim());
 
-    // SI ES LINK: usa ?url=
-    // SI ES TEXTO: usa ?q= (o el parámetro que use realmente tu API para buscar)
-    const apiEndpoint = `${BASE_URL}?${isUrl ? 'url' : 'q'}=${query}`;
+    // 1) SI ES TEXTO → BUSCAR EN /search/spotify
+    if (!isUrl) {
+      const { data: search } = await axios.get(
+        `${SEARCH_URL}?q=${encodeURIComponent(text.trim())}&limit=1`,
+        { timeout: 30000 }
+      );
 
-    const { data: response } = await axios.get(apiEndpoint, { timeout: 30000 });
+      // Ajusta esta parte según cómo responda tu API de Delirius
+      let item = Array.isArray(search?.data) ? search.data[0] : search?.data || search?.result?.[0];
+
+      // Aquí probamos varios posibles campos de URL
+      spotifyUrl =
+        item?.external_urls?.spotify ||
+        item?.url ||
+        item?.link;
+
+      if (!spotifyUrl) {
+        throw new Error('No se encontró ningún resultado de Spotify para esa búsqueda.');
+      }
+    }
+
+    // 2) DESCARGAR CON /download/spotifydl?url=
+    const { data: response } = await axios.get(
+      `${DOWNLOAD_URL}?url=${encodeURIComponent(spotifyUrl)}`,
+      { timeout: 30000 }
+    );
 
     if (!response || response.status !== true) {
       throw new Error('La API no devolvió una respuesta válida.');
@@ -61,7 +83,7 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
           body: author,
           mediaType: 1,
           thumbnailUrl: image,
-          sourceUrl: isUrl ? text : 'https://www.spotify.com'
+          sourceUrl: spotifyUrl
         }
       }
     }, { quoted: m });
@@ -79,7 +101,7 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
     await m.react?.('❌');
 
     const errorMsg = `╭────═[ ERROR - PANTHEON ]═─────⋆
-│ No se pudo procesar la canción.
+│ ${e.message}
 │ Intente con otro nombre o enlace.
 ╰───────────═┅═──────────`;
     await m.reply(errorMsg);
