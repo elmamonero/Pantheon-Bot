@@ -21,7 +21,15 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
             apiUrl = `https://delirius-apiofc.vercel.app/download/ytmp3?url=${encodeURIComponent(search.videos[0].url)}`
         }
 
+        // ✅ VALIDAR RESPONSE PRIMERO
         let response = await fetch(apiUrl)
+        
+        // Verificar si es HTML de error
+        const contentType = response.headers.get('content-type')
+        if (!contentType?.includes('application/json')) {
+            throw new Error('❌ API no responde correctamente (403/HTML)')
+        }
+
         let data = await response.json()
 
         if (!data.status) throw new Error('❌ Canción no disponible')
@@ -33,9 +41,9 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
         // Enviar portada con info
         await conn.sendFile(m.chat, info.image, 'portada.jpg', texto, m)
 
-        // ✅ URL DIRECTA (sin buffer = sin 403)
+        // ✅ URL DIRECTA (sin buffer)
         await conn.sendMessage(m.chat, {
-            audio: { url: info.download.url },  // ← URL directa
+            audio: { url: info.download.url },
             mimetype: 'audio/mpeg',
             fileName: `${info.title.slice(0,30)}.mp3`,
             ptt: false
@@ -45,7 +53,9 @@ let handler = async (m, { conn, command, text, usedPrefix }) => {
 
     } catch (error) {
         console.error(error)
-        m.reply(`*❌ Error*\n\n${error.message}\n\n🔗 Enlace directo:\n${info?.download?.url || 'https://wa.me/573108619948'}`)
+        // ✅ info solo existe si la API funcionó
+        const directLink = info?.download?.url || 'No disponible'
+        m.reply(`*❌ Error*\n\n${error.message}\n\n🔗 Enlace directo:\n${directLink}`)
     }
 }
 
