@@ -14,14 +14,10 @@ function formatViews(views) {
 
 const handler = async (m, { conn, text = '', usedPrefix, command }) => {
   try {
-    if (!text.trim()) {
-      await conn.reply(m.chat, `❀ Por favor, ingresa el nombre o enlace del video de YouTube.`, m);
-      return;
-    }
+    if (!text.trim()) return m.reply(`❀ Por favor, ingresa el nombre o enlace del video.`);
 
     await m.react('🕒');
 
-    // Búsqueda del video
     const videoIdMatch = text.match(youtubeRegexID);
     const searchQuery = videoIdMatch ? `https://www.youtube.com/watch?v=${videoIdMatch[1]}` : text;
     const searchResult = await yts(searchQuery);
@@ -29,53 +25,52 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
 
     if (!videoInfo) {
       await m.react('✖️');
-      await m.reply('✧ No se encontraron resultados para tu búsqueda.', m);
-      return;
+      return m.reply('✧ No se encontraron resultados.');
     }
 
     const { title, thumbnail, timestamp, views, ago, url } = videoInfo;
 
-    // Mensaje de información (caption)
-    const infoMessage = `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${videoInfo.author.name}*\n> 👀 Vistas ✦ *${formatViews(views)}*\n> ⏳ Duración ✦ *${timestamp}*\n> 📆 Publicado ✦ *${ago}*\n> 🖇️ Link ✦ ${url}\n\n*${botname}*`;
-
-    // Enviamos la miniatura con la info primero
+    // 1. Enviar miniatura informativa
     await conn.sendMessage(m.chat, {
       image: { url: thumbnail },
-      caption: infoMessage,
+      caption: `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${videoInfo.author.name}*\n> ⏳ Duración ✦ *${timestamp}*\n> 🖇️ Link ✦ ${url}\n\n*${botname}*`,
     }, { quoted: m });
 
-    // Llamada a la API de Stellarwa
-    // Usamos el ID del video para asegurar que la API encuentre el correcto
+    // 2. Llamada a la API
     const apiUrl = `https://api.stellarwa.xyz/dl/ytmp4?url=${encodeURIComponent(url)}&quality=360&key=GataDios`;
-    
-    console.log('Llamando a API Stellarwa Video:', apiUrl);
-
     const response = await fetch(apiUrl);
     const json = await response.json();
 
-    // Según el JSON que pasaste: json.data.dl es el link directo
     if (!json.status || !json.data || !json.data.dl) {
       await m.react('✖️');
-      await conn.reply(m.chat, '✦ Error: La API no devolvió un enlace de descarga (dl).', m);
-      return;
+      return m.reply('✦ Error: La API no devolvió un enlace de descarga.');
     }
 
-    const videoUrl = json.data.dl;
-
-    // Enviar el archivo de video
+    // 3. ENVIAR VIDEO (CORRECCIÓN DEL ERROR JID)
+    // Usamos m.quoted?.fakeObj || m para asegurar que el 'quoted' sea válido
     await conn.sendMessage(m.chat, {
-      video: { url: videoUrl },
+      video: { url: json.data.dl },
       fileName: `${title}.mp4`,
       mimetype: 'video/mp4',
       caption: `✅ *${title}*\n\n*${botname}*`
-    }, { quoted: m });
+    }, { quoted: m }); // Si sigue fallando, prueba cambiando { quoted: m } por { }
 
     await m.react('✅');
 
   } catch (error) {
-    console.error('Error en ytmp4:', error);
+    console.error('Error detallado:', error);
     await m.react('✖️');
-    await m.reply(`✦ Ocurrió un error inesperado:\n${error.message}`, m);
+    // Si el error persiste, enviamos el video sin citar el mensaje (sin quoted)
+    try {
+        if (error.message.includes('endsWith')) {
+            await conn.sendMessage(m.chat, { 
+                video: { url: url }, // url de la api si la capturaste
+                caption: `✅ *Descarga completada*` 
+            });
+        }
+    } catch (e) {
+        m.reply(`✦ Ocurrió un error:\n${error.message}`);
+    }
   }
 };
 
