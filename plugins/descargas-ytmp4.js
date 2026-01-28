@@ -23,41 +23,27 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
 
     const { title, thumbnail, timestamp, url } = videoInfo;
 
-    // Enviar mensaje de espera
     await conn.sendMessage(m.chat, {
       image: { url: thumbnail },
-      caption: `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${videoInfo.author.name}*\n> ⏳ Duración ✦ *${timestamp}*\n\n*Cargando archivo... por favor espere.*`,
+      caption: `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${videoInfo.author.name}*\n> ⏳ Duración ✦ *${timestamp}*\n\n*Procesando con enlace directo...*`,
     }, { quoted: m });
 
-    // API Stellarwa
+    // Llamada a la API
     const apiUrl = `https://api.stellarwa.xyz/dl/ytmp4?url=${encodeURIComponent(url)}&quality=360&key=GataDios`;
     const response = await fetch(apiUrl);
     const json = await response.json();
 
     if (!json.status || !json.data || !json.data.dl) {
       await m.react('✖️');
-      return m.reply('✦ Error: La API no devolvió un enlace de descarga válido.');
+      return m.reply('✦ Error: El servidor de la API rechazó la solicitud.');
     }
 
     const videoUrl = json.data.dl;
 
-    // --- SOLUCIÓN AL ERROR 403 ---
-    // Descargamos el video como Buffer para saltar el bloqueo de Google
-    const videoStream = await axios({
-      method: 'get',
-      url: videoUrl,
-      responseType: 'arraybuffer',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
-        'Referer': 'https://youtube.com/'
-      }
-    });
-
-    const videoBuffer = Buffer.from(videoStream.data);
-
-    // Enviar el video como Buffer (evita el error de JID y el 403)
+    // Intentamos enviar directamente usando el servidor de WhatsApp como puente
+    // Esto suele saltarse el 403 del servidor local
     await conn.sendMessage(m.chat, {
-      video: videoBuffer,
+      video: { url: videoUrl },
       fileName: `${title}.mp4`,
       mimetype: 'video/mp4',
       caption: `✅ *${title}*\n\n*${botname}*`
@@ -67,8 +53,22 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
 
   } catch (error) {
     console.error('Error detallado:', error);
-    await m.react('✖️');
-    m.reply(`✦ Ocurrió un error al procesar el video. Intenta de nuevo.\n\n*Error:* ${error.message}`);
+    
+    // Si falla por 403, intentamos un último método: Stream simple con fetch
+    try {
+        const videoUrlFallback = (await (await fetch(`https://api.stellarwa.xyz/dl/ytmp4?url=${encodeURIComponent(text)}&quality=360&key=GataDios`)).json()).data.dl;
+        
+        await conn.sendMessage(m.chat, {
+            document: { url: videoUrlFallback },
+            mimetype: 'video/mp4',
+            fileName: `${title || 'video'}.mp4`,
+            caption: `*Nota:* Se envió como documento debido a restricciones de YouTube.\n\n*${botname}*`
+        }, { quoted: m });
+        await m.react('✅');
+    } catch (e) {
+        await m.react('✖️');
+        m.reply(`⚠️ No fue posible descargar este video debido a las restricciones de YouTube (Error 403). Intenta con otro enlace.`);
+    }
   }
 };
 
