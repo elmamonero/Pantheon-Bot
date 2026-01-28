@@ -21,7 +21,6 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
 
     await m.react('🕒');
 
-    // Búsqueda en YouTube
     const videoIdMatch = text.match(youtubeRegexID);
     const searchQuery = videoIdMatch ? `https://www.youtube.com/watch?v=${videoIdMatch[1]}` : text;
     const searchResult = await yts(searchQuery);
@@ -32,7 +31,7 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
 
     if (!videoInfo) {
       await m.react('✖️');
-      await m.reply('✧ No se encontraron resultados para tu búsqueda.', m);
+      await m.reply('✧ No se encontraron resultados.', m);
       return;
     }
 
@@ -40,48 +39,33 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
     const vistas = formatViews(Number(views));
     const canal = author.name || 'Desconocido';
 
-    const infoMessage = `「✦」Descargando *Video* > 📺 Canal ✦ *${canal}*
-> 👀 Vistas ✦ *${vistas}*
-> ⏳ Duración ✦ *${timestamp}*
-> 📆 Publicado ✦ *${ago}*
-> 🖇️ Link ✦ ${url}`;
+    const infoMessage = `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${canal}*\n> 👀 Vistas ✦ *${vistas}*\n> ⏳ Duración ✦ *${timestamp}*\n> 📆 Publicado ✦ *${ago}*\n> 🖇️ Link ✦ ${url}`;
 
-    // Enviar información previa
     await conn.sendMessage(m.chat, {
       image: { url: thumbnail },
       caption: infoMessage,
-      contextInfo: {
-        externalAdReply: {
-          title: botname,
-          body: "Descargador de Video",
-          mediaType: 1,
-          sourceUrl: url,
-          thumbnailUrl: thumbnail,
-          renderLargerThumbnail: true,
-        },
-      },
     }, { quoted: m });
 
-    // Llamada a la API de Stellarwa
+    // Llamada a la API
     const apiUrl = `https://api.stellarwa.xyz/dl/ytmp4?url=${encodeURIComponent(url)}&quality=360&key=GataDios`;
-    
     console.log('Llamando a API Stellarwa Video:', apiUrl);
 
     const response = await fetch(apiUrl);
-    if (!response.ok) throw new Error(`Error en la API: ${response.status}`);
-
     const json = await response.json();
 
-    // Verificamos la estructura json.status y json.data
-    if (!json.status || !json.data || !json.data.download) {
+    /* Ajuste según la respuesta de la API:
+       json.data.dl["360p"] es donde suele venir el link de descarga en esta API para video
+    */
+    let downloadLink = json.data?.download || (json.data?.dl ? json.data.dl["360p"] : null);
+
+    if (!json.status || !downloadLink) {
       await m.react('✖️');
-      await conn.reply(m.chat, '✦ No se pudo obtener el enlace de descarga del video.', m);
+      await conn.reply(m.chat, '✦ No se pudo obtener el enlace de descarga del video. Intenta con otro video o calidad.', m);
       return;
     }
 
-    // Enviar el video mp4
     await conn.sendMessage(m.chat, {
-      video: { url: json.data.download },
+      video: { url: downloadLink },
       fileName: `${title}.mp4`,
       mimetype: 'video/mp4',
       caption: `✅ *${title}*\n\n*${botname}*`
@@ -92,7 +76,7 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
   } catch (error) {
     console.error(error);
     await m.react('✖️');
-    await m.reply(`✦ Ocurrió un error al descargar el video:\n${error.message || error}`, m);
+    await m.reply(`✦ Ocurrió un error:\n${error.message}`, m);
   }
 };
 
