@@ -8,32 +8,24 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const handler = async (m, { conn, args, command }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
-  let url = args[0];
-  const isUrl = /(youtube\.com|youtu\.be)/.test(url);
-
-  if (!isUrl) {
-    const searchResults = await yts(args.join(' '));
-    if (!searchResults.videos.length) {
-      return m.reply('No se encontraron resultados para tu búsqueda');
-    }
-    url = searchResults.videos[0].url;
-  }
-
+  let searchQuery = args.join(' ');
+  
   try {
     await m.react('🕒');
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const query = encodeURIComponent(args.join(' '));
-    const apiUrl = `https://apis.davidcyriltech.my.id/play?query=${query}`;
+    // Nueva API de Stellarwa
+    const query = encodeURIComponent(searchQuery);
+    const apiUrl = `https://api.stellarwa.xyz/dl/youtubeplay?query=${query}&key=GataDios`;
     
-    console.log('Llamando a API:', apiUrl);
+    console.log('Llamando a API Stellarwa:', apiUrl);
 
     const apiResponse = await fetch(apiUrl, { 
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0'
       }
     });
     
@@ -45,88 +37,72 @@ const handler = async (m, { conn, args, command }) => {
 
     const data = await apiResponse.json();
 
+    // La API de Stellarwa usa data.result para los detalles
     if (!data.status || !data.result) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el audio.\n\n*Pantheon Bot*`);
+      return m.reply(`*✖️ Error:* No se encontró el contenido.\n\n*Pantheon Bot*`);
     }
 
-    const { title, thumbnail, download_url: audioUrl, video_url, duration } = data.result;
+    const { title, thumb, download: audioUrl, source: video_url, duration_seconds } = data.result;
     
+    // Convertir segundos a formato mm:ss para el mensaje
+    const duration = new Date(duration_seconds * 1000).toISOString().substr(14, 5);
+
     if (!audioUrl) {
       await m.react('✖️');
       return m.reply('*✖️ Error:* No hay enlace de descarga disponible\n\n*Pantheon Bot*');
     }
 
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
-
-    // Descarga silenciosa
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
-    console.log('Descargando audio desde:', audioUrl);
+    console.log('Descargando audio...');
 
     const audioResponse = await fetch(audioUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://youtube.com/',
-      },
-      signal: AbortSignal.timeout(20000)
+      signal: AbortSignal.timeout(30000)
     });
 
-    if (!audioResponse.ok) {
-      throw new Error(`Error descarga: ${audioResponse.status}`);
-    }
+    if (!audioResponse.ok) throw new Error(`Error descarga: ${audioResponse.status}`);
 
     const arrayBuffer = await audioResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     
-    if (arrayBuffer.byteLength > MAX_SIZE_BYTES) {
-      throw new Error(`Archivo muy pesado (${(arrayBuffer.byteLength/1024/1024).toFixed(1)}MB). Máximo ${MAX_SIZE_MB}MB`);
+    if (buffer.length > MAX_SIZE_BYTES) {
+      throw new Error(`Archivo muy pesado (${(buffer.length/1024/1024).toFixed(1)}MB). Máximo ${MAX_SIZE_MB}MB`);
     }
 
-    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
+    fs.writeFileSync(dest, buffer);
     const stats = fs.statSync(dest);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
 
-    // Thumbnail + info CON PANTHEON BOT COMO TEXTO
-    if (thumbnail) {
-      try {
-        const thumbResponse = await fetch(thumbnail, { 
-          signal: AbortSignal.timeout(5000) 
-        });
-        const thumbBuffer = await thumbResponse.arrayBuffer();
-        await conn.sendMessage(m.chat, {
-          image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
-        }, { quoted: m });
-      } catch (e) {
-        console.log('Thumbnail falló:', e.message);
-        // Fallback texto
-        await conn.sendMessage(m.chat, {
-          text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
-        }, { quoted: m });
-      }
-    } else {
+    // Envío de miniatura e información
+    const infoText = `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${sizeMB}MB\n\n*Pantheon Bot*`;
+
+    if (thumb) {
       await conn.sendMessage(m.chat, {
-        text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url || url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
+        image: { url: thumb },
+        caption: infoText,
       }, { quoted: m });
+    } else {
+      await conn.sendMessage(m.chat, { text: infoText }, { quoted: m });
     }
 
-    // Audio directo
+    // Envío del archivo de audio
     await conn.sendMessage(m.chat, {
-      audio: { url: audioUrl },
+      audio: buffer,
       mimetype: 'audio/mpeg',
-      fileName,
+      fileName: `${title}.mp3`,
     }, { quoted: m });
 
-    // Cleanup
-    if (fs.existsSync(dest)) {
-      fs.unlinkSync(dest);
-    }
-    
+    // Limpieza
+    if (fs.existsSync(dest)) fs.unlinkSync(dest);
     await m.react('✅');
     
   } catch (error) {
+    console.error('Error detallado:', error);
     if (error.name === 'AbortError') {
       await m.react('⏰');
-      return m.reply(`⏰ *Timeout* - Canción muy pesada (>${MAX_SIZE_MB}MB)\n\n*Pantheon Bot*`);
+      return m.reply(`⏰ *Timeout* - La conexión tardó demasiado.\n\n*Pantheon Bot*`);
     }
     
     if (error.message.includes('muy pesado')) {
@@ -134,13 +110,13 @@ const handler = async (m, { conn, args, command }) => {
       return m.reply(`${error.message}\n\n*Pantheon Bot*`);
     }
     
-    console.error('Error completo:', error);
     await m.react('✖️');
-    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Pantheon Bot*');
+    m.reply('⚠️ Falló la descarga con esta API. Intenta de nuevo más tarde.\n\n*Pantheon Bot*');
   }
 };
 
 handler.help = ['play <nombre|URL>'];
 handler.command = ['play'];
 handler.tags = ['descargas'];
+
 export default handler;
