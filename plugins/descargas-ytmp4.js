@@ -2,7 +2,6 @@ import fetch from 'node-fetch';
 import yts from 'yt-search';
 
 const youtubeRegexID = /(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]{11})/;
-
 const botname = "Pantheon Bot";
 
 function formatViews(views) {
@@ -20,97 +19,79 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
       return;
     }
 
-    // Obtener videoId de la URL o usar texto para buscar
+    await m.react('🕒');
+
+    // Búsqueda en YouTube
     const videoIdMatch = text.match(youtubeRegexID);
-    const searchQuery = videoIdMatch ? `https://youtu.be/${videoIdMatch[1]}` : text;
+    const searchQuery = videoIdMatch ? `https://www.youtube.com/watch?v=${videoIdMatch[1]}` : text;
     const searchResult = await yts(searchQuery);
 
-    let videoInfo;
-    if (videoIdMatch) {
-      videoInfo = searchResult.all.find(v => v.videoId === videoIdMatch[1]) || searchResult.videos.find(v => v.videoId === videoIdMatch[1]);
-    }
-
-    videoInfo = videoInfo || (searchResult.all && searchResult.all[0]) || (searchResult.videos && searchResult.videos[0]);
+    let videoInfo = videoIdMatch 
+      ? (searchResult.all.find(v => v.videoId === videoIdMatch[1]) || searchResult.videos[0])
+      : searchResult.videos[0];
 
     if (!videoInfo) {
+      await m.react('✖️');
       await m.reply('✧ No se encontraron resultados para tu búsqueda.', m);
       return;
     }
 
-    // Asignaciones sin operador ||= para compatibilidad
-    let title = videoInfo.title ? videoInfo.title : 'No encontrado';
-    let thumbnail = videoInfo.thumbnail ? videoInfo.thumbnail : '';
-    let timestamp = videoInfo.timestamp ? videoInfo.timestamp : 'No disponible';
-    let views = videoInfo.views ? videoInfo.views : 0;
-    let ago = videoInfo.ago ? videoInfo.ago : 'No disponible';
-    let url = videoInfo.url ? videoInfo.url : 'No disponible';
-    let author = videoInfo.author ? videoInfo.author : {};
-
+    const { title, thumbnail, timestamp, views, ago, url, author } = videoInfo;
     const vistas = formatViews(Number(views));
-    const canal = author.name ? author.name : 'Desconocido';
+    const canal = author.name || 'Desconocido';
 
-    // Obtener la miniatura (si tu bot lo soporta)
-    let thumb = null;
-    if (thumbnail && conn.getFile) {
-      const fileInfo = await conn.getFile(thumbnail);
-      thumb = fileInfo?.data || null;
-    }
-
-    const infoMessage =
-`「✦」Descargando *<${title}>*
-
-> 📺 Canal ✦ *${canal}*
+    const infoMessage = `「✦」Descargando *Video* > 📺 Canal ✦ *${canal}*
 > 👀 Vistas ✦ *${vistas}*
 > ⏳ Duración ✦ *${timestamp}*
 > 📆 Publicado ✦ *${ago}*
 > 🖇️ Link ✦ ${url}`;
 
-    const context = {
+    // Enviar información previa
+    await conn.sendMessage(m.chat, {
+      image: { url: thumbnail },
+      caption: infoMessage,
       contextInfo: {
         externalAdReply: {
           title: botname,
-          body: dev,
+          body: "Descargador de Video",
           mediaType: 1,
-          previewType: 0,
-          mediaUrl: url,
           sourceUrl: url,
-          thumbnail: thumb,
+          thumbnailUrl: thumbnail,
           renderLargerThumbnail: true,
         },
       },
-    };
+    }, { quoted: m });
 
-    await conn.reply(m.chat, infoMessage, m, context);
-
-    const apikey = "sylphy-eab7"; // Tu API key oficial
-    const apiUrl = `https://api.sylphy.xyz/download/ytmp4?url=${encodeURIComponent(url)}&apikey=${apikey}`;
+    // Llamada a la API de Stellarwa
+    const apiUrl = `https://api.stellarwa.xyz/dl/ytmp4?url=${encodeURIComponent(url)}&quality=360&key=GataDios`;
+    
+    console.log('Llamando a API Stellarwa Video:', apiUrl);
 
     const response = await fetch(apiUrl);
-    if (!response.ok) {
-      await conn.reply(m.chat, '✦ Error en la solicitud a la API Sylphy.', m);
-      return;
-    }
+    if (!response.ok) throw new Error(`Error en la API: ${response.status}`);
 
     const json = await response.json();
 
-    if (!json.res || !json.res.url) {
-      await conn.reply(m.chat, '✦ No se pudo obtener el enlace del video para descargar.', m);
+    // Verificamos la estructura json.status y json.data
+    if (!json.status || !json.data || !json.data.download) {
+      await m.react('✖️');
+      await conn.reply(m.chat, '✦ No se pudo obtener el enlace de descarga del video.', m);
       return;
     }
 
     // Enviar el video mp4
-    await conn.sendFile(
-      m.chat,
-      json.res.url,
-      `${json.res.title || title}.mp4`,
-      title,
-      m
-    );
+    await conn.sendMessage(m.chat, {
+      video: { url: json.data.download },
+      fileName: `${title}.mp4`,
+      mimetype: 'video/mp4',
+      caption: `✅ *${title}*\n\n*${botname}*`
+    }, { quoted: m });
 
-    return;
+    await m.react('✅');
 
   } catch (error) {
     console.error(error);
+    await m.react('✖️');
     await m.reply(`✦ Ocurrió un error al descargar el video:\n${error.message || error}`, m);
   }
 };
