@@ -6,66 +6,65 @@ const botname = "Pantheon Bot";
 
 function formatViews(views) {
   if (!views) return "No disponible";
-  if (views >= 1000000000) return (views / 1000000000).toFixed(1) + "B (" + views.toLocaleString() + ")";
-  if (views >= 1000000) return (views / 1000000).toFixed(1) + "M (" + views.toLocaleString() + ")";
-  if (views >= 1000) return (views / 1000).toFixed(1) + "k (" + views.toLocaleString() + ")";
+  if (views >= 1000000000) return (views / 1000000000).toFixed(1) + "B";
+  if (views >= 1000000) return (views / 1000000).toFixed(1) + "M";
+  if (views >= 1000) return (views / 1000).toFixed(1) + "k";
   return views.toString();
 }
 
 const handler = async (m, { conn, text = '', usedPrefix, command }) => {
   try {
     if (!text.trim()) {
-      await conn.reply(m.chat, `❀ Por favor, ingresa el nombre o enlace del video de YouTube que quieres descargar.`, m);
+      await conn.reply(m.chat, `❀ Por favor, ingresa el nombre o enlace del video de YouTube.`, m);
       return;
     }
 
     await m.react('🕒');
 
+    // Búsqueda del video
     const videoIdMatch = text.match(youtubeRegexID);
     const searchQuery = videoIdMatch ? `https://www.youtube.com/watch?v=${videoIdMatch[1]}` : text;
     const searchResult = await yts(searchQuery);
-
-    let videoInfo = videoIdMatch 
-      ? (searchResult.all.find(v => v.videoId === videoIdMatch[1]) || searchResult.videos[0])
-      : searchResult.videos[0];
+    const videoInfo = searchResult.videos[0];
 
     if (!videoInfo) {
       await m.react('✖️');
-      await m.reply('✧ No se encontraron resultados.', m);
+      await m.reply('✧ No se encontraron resultados para tu búsqueda.', m);
       return;
     }
 
-    const { title, thumbnail, timestamp, views, ago, url, author } = videoInfo;
-    const vistas = formatViews(Number(views));
-    const canal = author.name || 'Desconocido';
+    const { title, thumbnail, timestamp, views, ago, url } = videoInfo;
 
-    const infoMessage = `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${canal}*\n> 👀 Vistas ✦ *${vistas}*\n> ⏳ Duración ✦ *${timestamp}*\n> 📆 Publicado ✦ *${ago}*\n> 🖇️ Link ✦ ${url}`;
+    // Mensaje de información (caption)
+    const infoMessage = `「✦」Descargando *Video*\n\n> 📺 Canal ✦ *${videoInfo.author.name}*\n> 👀 Vistas ✦ *${formatViews(views)}*\n> ⏳ Duración ✦ *${timestamp}*\n> 📆 Publicado ✦ *${ago}*\n> 🖇️ Link ✦ ${url}\n\n*${botname}*`;
 
+    // Enviamos la miniatura con la info primero
     await conn.sendMessage(m.chat, {
       image: { url: thumbnail },
       caption: infoMessage,
     }, { quoted: m });
 
-    // Llamada a la API
+    // Llamada a la API de Stellarwa
+    // Usamos el ID del video para asegurar que la API encuentre el correcto
     const apiUrl = `https://api.stellarwa.xyz/dl/ytmp4?url=${encodeURIComponent(url)}&quality=360&key=GataDios`;
+    
     console.log('Llamando a API Stellarwa Video:', apiUrl);
 
     const response = await fetch(apiUrl);
     const json = await response.json();
 
-    /* Ajuste según la respuesta de la API:
-       json.data.dl["360p"] es donde suele venir el link de descarga en esta API para video
-    */
-    let downloadLink = json.data?.download || (json.data?.dl ? json.data.dl["360p"] : null);
-
-    if (!json.status || !downloadLink) {
+    // Según el JSON que pasaste: json.data.dl es el link directo
+    if (!json.status || !json.data || !json.data.dl) {
       await m.react('✖️');
-      await conn.reply(m.chat, '✦ No se pudo obtener el enlace de descarga del video. Intenta con otro video o calidad.', m);
+      await conn.reply(m.chat, '✦ Error: La API no devolvió un enlace de descarga (dl).', m);
       return;
     }
 
+    const videoUrl = json.data.dl;
+
+    // Enviar el archivo de video
     await conn.sendMessage(m.chat, {
-      video: { url: downloadLink },
+      video: { url: videoUrl },
       fileName: `${title}.mp4`,
       mimetype: 'video/mp4',
       caption: `✅ *${title}*\n\n*${botname}*`
@@ -74,9 +73,9 @@ const handler = async (m, { conn, text = '', usedPrefix, command }) => {
     await m.react('✅');
 
   } catch (error) {
-    console.error(error);
+    console.error('Error en ytmp4:', error);
     await m.react('✖️');
-    await m.reply(`✦ Ocurrió un error:\n${error.message}`, m);
+    await m.reply(`✦ Ocurrió un error inesperado:\n${error.message}`, m);
   }
 };
 
