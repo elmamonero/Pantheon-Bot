@@ -2,57 +2,57 @@ import yts from 'yt-search';
 import fetch from 'node-fetch';
 
 const handler = async (m, { conn, args, usedPrefix, command }) => {
-    if (!args[0]) return conn.reply(m.chat, '*🐱 Ingresa un título de Youtube.*', m);
+    // Verificamos si hay texto después del comando
+    if (!args[0]) return conn.reply(m.chat, `*🐱 Ingresa un título de Youtube.*\n\n*🐈 Ejemplo:* ${usedPrefix + command} Corazón Serrano - Mix Poco Yo`, m);
 
     await m.react('🕓');
     try {
-        const search = await yts(args.join(" "));
-        const video = search.videos[0];
-        if (!video) return conn.reply(m.chat, '*No se encontraron resultados.*', m);
+        // Realizamos la búsqueda
+        let search = await yts(args.join(" "));
+        let video = search.videos[0];
 
-        const { title, thumbnail, timestamp, url } = video;
-
-        let txt = `*╔═══════『 DESCARGAS 』══════╗*\n`;
-        txt += `*┃* 🏷️ *Título:* ${title}\n`;
-        txt += `*┃* ⌛ *Duración:* ${timestamp}\n`;
-        txt += `*┃* 🖇️ *Url:* ${url}\n`;
-        txt += `*╚════════════════════╝*\n\n`;
-        txt += `> *Enviando audio, espera un momento...*`;
-
-        await conn.sendMessage(m.chat, { image: { url: thumbnail }, caption: txt }, { quoted: m });
-
-        // Cambiamos a una API que suele estar más libre (puedes probar con esta)
-        const api = await fetch(`https://api.tostadora.org/api/v1/ytmp3?url=${url}`);
-        const res = await api.json();
-
-        if (res.status && res.result.download) {
-            await conn.sendMessage(m.chat, { 
-                audio: { url: res.result.download }, 
-                mimetype: 'audio/mp4', 
-                fileName: `${title}.mp3` 
-            }, { quoted: m });
-            await m.react('✅');
-        } else {
-            // Si la anterior falla, intentamos con una de respaldo automática
-            const backup = await fetch(`https://api.zenkey.my.id/api/download/ytmp3?url=${url}&apikey=zenkey`);
-            const res2 = await backup.json();
-            
-            if (res2.status) {
-                await conn.sendMessage(m.chat, { 
-                    audio: { url: res2.result.download.url }, 
-                    mimetype: 'audio/mp4', 
-                    fileName: `${title}.mp3` 
-                }, { quoted: m });
-                await m.react('✅');
-            } else {
-                throw new Error('Todas las fuentes de descarga están saturadas.');
-            }
+        if (!video) {
+            await m.react('✖️');
+            return conn.reply(m.chat, '*`No se encontraron resultados.`*', m);
         }
 
+        const { title, thumbnail, timestamp, author, url, ago } = video;
+        let imageBuffer = await (await fetch(thumbnail)).buffer();
+
+        // Texto informativo (Estructura similar a tu primer código)
+        let messageText = `\`DESCARGAS - PLAY\`\n\n`;
+        messageText += `*📌 Título:* ${title}\n`;
+        messageText += `*⌛ Duración:* ${timestamp}\n`;
+        messageText += `*👤 Autor:* ${author.name}\n`;
+        messageText += `*📆 Publicado:* ${convertTimeToSpanish(ago)}\n`;
+        messageText += `*🖇️ Url:* ${url}\n\n`;
+        messageText += `*Escribe el comando para descargar:* \n`;
+        messageText += `> *${usedPrefix}ytmp3* ${url}\n`;
+        messageText += `> *${usedPrefix}ytmp4* ${url}`;
+
+        // Enviamos la imagen con la información
+        await conn.sendMessage(m.chat, {
+            image: imageBuffer,
+            caption: messageText,
+            contextInfo: {
+                externalAdReply: {
+                    showAdAttribution: true,
+                    title: title,
+                    body: author.name,
+                    thumbnail: imageBuffer,
+                    sourceUrl: url,
+                    mediaType: 1,
+                    renderLargerThumbnail: true
+                }
+            }
+        }, { quoted: m });
+
+        await m.react('✅');
+
     } catch (e) {
-        await m.react('✖️');
         console.error(e);
-        conn.reply(m.chat, '❌ *Error:* No pude descargar el audio. Intenta de nuevo en unos minutos.', m);
+        await m.react('✖️');
+        conn.reply(m.chat, '*`Error al buscar el video.`*', m);
     }
 };
 
@@ -61,3 +61,16 @@ handler.tags = ['descargas'];
 handler.command = ['play', 'play2'];
 
 export default handler;
+
+// Función para traducir el tiempo (mejorada para que no dé error de sintaxis)
+function convertTimeToSpanish(timeText) {
+    if (!timeText) return 'Reciente';
+    return timeText
+        .replace(/year/g, 'año').replace(/years/g, 'años')
+        .replace(/month/g, 'mes').replace(/months/g, 'meses')
+        .replace(/week/g, 'semana').replace(/weeks/g, 'semanas')
+        .replace(/day/g, 'día').replace(/days/g, 'días')
+        .replace(/hour/g, 'hora').replace(/hours/g, 'horas')
+        .replace(/minute/g, 'minuto').replace(/minutes/g, 'minutos')
+        .replace(/ago/g, 'atrás');
+}
