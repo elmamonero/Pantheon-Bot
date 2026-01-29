@@ -14,22 +14,32 @@ const handler = async (m, { conn, args }) => {
 
         await conn.sendMessage(m.chat, {
             image: { url: thumbnail },
-            caption: `*📌 Título:* ${title}\n*👤 Autor:* ${author.name}\n\n> *Descargando audio, por favor espera...*`
+            caption: `*📌 Título:* ${title}\n*👤 Autor:* ${author.name}\n\n> *Descargando desde servidor estable...*`
         }, { quoted: m });
 
-        // Intentamos con un motor de conversión directo (yt1s / y2mate proxy)
-        const res = await fetch(`https://api.shizuka.site/y2mate?url=${url}`);
-        const data = await res.json();
+        // Intentamos con una secuencia de APIs más modernas y estables
+        const providers = [
+            `https://api.alyachan.dev/api/ytmp3?url=${url}`,
+            `https://api.betabotz.eu.org/api/download/ytmp3?url=${url}&apikey=beta-pitu`,
+            `https://api.caliph.biz.id/api/ytmp3?url=${url}`,
+            `https://api.boxmine.xyz/api/v1/ytmp3?url=${url}`
+        ];
 
-        // Buscamos el link de audio en la respuesta
-        // Si esta API falla, usamos una de respaldo inmediato en el mismo código
-        let downloadUrl = data.links?.mp3?.['128kbps']?.url || data.result;
+        let downloadUrl = null;
 
-        if (!downloadUrl) {
-            // RESPALDO: API de descarga tipo Bypass
-            const res2 = await fetch(`https://api.siputzx.my.id/api/d/ytmp3?url=${url}`);
-            const data2 = await res2.json();
-            downloadUrl = data2.data?.url || data2.result;
+        for (let api of providers) {
+            try {
+                const res = await fetch(api);
+                if (!res.ok) continue;
+                const data = await res.json();
+                
+                // Extraer link (cada API lo llama distinto)
+                downloadUrl = data.result?.url || data.result?.download?.url || data.data?.url || data.url;
+                
+                if (downloadUrl) break; // Si encontramos uno, salimos del bucle
+            } catch (e) {
+                console.log(`Fallo en: ${api}`);
+            }
         }
 
         if (downloadUrl) {
@@ -40,13 +50,13 @@ const handler = async (m, { conn, args }) => {
             }, { quoted: m });
             await m.react('✅');
         } else {
-            throw new Error('No se pudo obtener el enlace de descarga.');
+            throw new Error('Todos los servidores de descarga fallaron.');
         }
 
     } catch (e) {
         console.error(e);
         await m.react('✖️');
-        conn.reply(m.chat, `*❌ Error:* Los servidores de YouTube están rechazando la conexión del hosting. Intenta buscar por el *link directo* del video.`, m);
+        conn.reply(m.chat, `*❌ Error Crítico:* Tu hosting está bloqueando las conexiones salientes o las APIs están en mantenimiento.`, m);
     }
 };
 
