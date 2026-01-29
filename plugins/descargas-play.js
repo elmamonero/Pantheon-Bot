@@ -1,6 +1,55 @@
 import yts from 'yt-search';
-import fetch from 'node-fetch';
+import axios from 'axios';
+import crypto from 'crypto';
 
+// --- SISTEMA DE EXTRACCIÓN OGMP3 (El que encontraste) ---
+const ogmp3 = {
+    api: { base: 'https://api3.apiapi.lat', endpoints: { a: 'https://api5.apiapi.lat', b: 'https://api.apiapi.lat', c: 'https://api3.apiapi.lat' } },
+    headers: { authority: 'api.apiapi.lat', 'content-type': 'application/json', origin: 'https://ogmp3.lat', referer: 'https://ogmp3.lat/', 'user-agent': 'Postify/1.0.0' },
+    utils: {
+        hash: () => {
+            const array = new Uint8Array(16);
+            crypto.getRandomValues(array);
+            return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
+        },
+        encoded: (str) => {
+            let result = '';
+            for (let i = 0; i < str.length; i++) result += String.fromCharCode(str.charCodeAt(i) ^ 1);
+            return result;
+        },
+        enc_url: (url, separator = ',') => {
+            const codes = [];
+            for (let i = 0; i < url.length; i++) codes.push(url.charCodeAt(i));
+            return codes.join(separator).split(separator).reverse().join(separator);
+        }
+    },
+    request: async (endpoint, data = {}, method = 'post') => {
+        const ae = Object.values(ogmp3.api.endpoints);
+        const be = ae[Math.floor(Math.random() * ae.length)];
+        const fe = endpoint.startsWith('http') ? endpoint : `${be}${endpoint}`;
+        const { data: response } = await axios({ method, url: fe, data: method === 'post' ? data : undefined, headers: ogmp3.headers });
+        return response;
+    },
+    download: async (link) => {
+        const c = ogmp3.utils.hash();
+        const d = ogmp3.utils.hash();
+        const req = {
+            data: ogmp3.utils.encoded(link),
+            format: '0', // 0 = audio
+            referer: 'https://ogmp3.cc',
+            mp3Quality: '320',
+            userTimeZone: '-360'
+        };
+        const resx = await ogmp3.request(`/${c}/init/${ogmp3.utils.enc_url(link)}/${d}/`, req);
+        if (resx.s === 'C') return `${ogmp3.api.base}/${ogmp3.utils.hash()}/download/${ogmp3.utils.encoded(resx.i)}/${ogmp3.utils.hash()}/`;
+        
+        // Si no está listo, chequeamos estatus (resumen del loop)
+        const check = await ogmp3.request(`/${ogmp3.utils.hash()}/status/${ogmp3.utils.encoded(resx.i)}/${ogmp3.utils.hash()}/`, { data: resx.i });
+        return `${ogmp3.api.base}/${ogmp3.utils.hash()}/download/${ogmp3.utils.encoded(check.i)}/${ogmp3.utils.hash()}/`;
+    }
+};
+
+// --- HANDLER DEL BOT ---
 const handler = async (m, { conn, args, usedPrefix, command }) => {
     if (!args[0]) return conn.reply(m.chat, '*🐱 Ingresa el nombre de la canción.*', m);
 
@@ -8,65 +57,34 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
     try {
         let search = await yts(args.join(" "));
         let video = search.videos[0];
-        if (!video) return conn.reply(m.chat, '*No se encontraron resultados.*', m);
+        if (!video) return conn.reply(m.chat, '*No encontré nada.*', m);
 
         const { title, thumbnail, url, timestamp, author } = video;
 
+        // Enviar info inicial
         await conn.sendMessage(m.chat, {
             image: { url: thumbnail },
-            caption: `*📌 Título:* ${title}\n*⌛ Duración:* ${timestamp}\n*👤 Autor:* ${author.name}\n\n> *Buscando en servidores premium...*`
+            caption: `*📌 Título:* ${title}\n*⌛ Duración:* ${timestamp}\n*👤 Autor:* ${author.name}\n\n> *Descargando mediante OGMP3 Engine...*`
         }, { quoted: m });
 
-        // LISTA DE APIS ACTUALIZADAS 2026
-        const apiSources = [
-            `https://api.debx.site/api/v1/ytmp3?url=${url}`,
-            `https://api.vreden.my.id/api/ytmp3?url=${url}`,
-            `https://api.neoxr.eu/api/youtube?url=${url}`,
-            `https://api.miftah.my.id/api/download/ytmp3?url=${url}`,
-            `https://api.yanzbotz.my.id/api/downloader/ytmp3?url=${url}`
-        ];
+        // USAR EL SCRAPER QUE ENCONTRASTE
+        const dlUrl = await ogmp3.download(url);
 
-        let success = false;
-        for (let api of apiSources) {
-            try {
-                let res = await fetch(api);
-                let json = await res.json();
-                
-                // Las APIs modernas suelen guardar el link en diferentes lugares
-                let dl = json.result?.url || json.result?.download || json.data?.url || json.data?.link || json.url;
-
-                if (dl) {
-                    await conn.sendMessage(m.chat, {
-                        audio: { url: dl },
-                        mimetype: 'audio/mp4',
-                        fileName: `${title}.mp3`
-                    }, { quoted: m });
-                    success = true;
-                    await m.react('✅');
-                    break; 
-                }
-            } catch (e) {
-                console.log(`Fallo en: ${api}`);
-                continue; 
-            }
+        if (dlUrl) {
+            await conn.sendMessage(m.chat, {
+                audio: { url: dlUrl },
+                mimetype: 'audio/mp4',
+                fileName: `${title}.mp3`
+            }, { quoted: m });
+            await m.react('✅');
+        } else {
+            throw new Error();
         }
-
-        if (!success) {
-            // ÚLTIMO RECURSO: API de descarga directa de emergencia
-            let emergency = await fetch(`https://api.darky.me/api/ytmp3?url=${url}`);
-            let emJson = await emergency.json();
-            if (emJson.url) {
-                await conn.sendMessage(m.chat, { audio: { url: emJson.url }, mimetype: 'audio/mp4' }, { quoted: m });
-                await m.react('✅');
-                success = true;
-            }
-        }
-
-        if (!success) throw new Error('Servidores fuera de servicio.');
 
     } catch (e) {
+        console.error(e);
         await m.react('✖️');
-        conn.reply(m.chat, `*❌ Error total:* Intenta de nuevo en unos minutos o usa un nombre más corto.`, m);
+        conn.reply(m.chat, `*❌ Error:* El servidor OGMP3 no respondió. Intenta de nuevo.`, m);
     }
 };
 
