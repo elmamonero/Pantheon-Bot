@@ -17,7 +17,7 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
         const { title, thumbnail, timestamp, author, url, ago } = video;
 
-        // 3. Diseño del mensaje informativo
+        // 3. Diseño del mensaje inforsmativo
         let messageText = `*╔═══════『 DESCARGAS 』══════╗*\n`;
         messageText += `*┃* 🏷️ *Título:* ${title}\n`;
         messageText += `*┃* ⌛ *Duración:* ${timestamp}\n`;
