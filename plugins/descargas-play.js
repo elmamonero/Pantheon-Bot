@@ -1,113 +1,77 @@
-import fs from 'fs';
-import path from 'path';
+import yts from 'yt-search';
+import fetch from 'node-fetch';
 
-const MAX_SIZE_MB = 50;
-const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const handler = async (m, { conn, args, usedPrefix, command }) => {
+    // 1. Validación de entrada
+    if (!args[0]) return conn.reply(m.chat, `*🐱 Ingresa un título de Youtube.*\n\n*🐈 Ejemplo:* ${usedPrefix + command} Corazón Serrano`, m);
 
-const handler = async (m, { conn, args, command }) => {
-  if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
+    await m.react('🕓');
+    try {
+        // 2. Búsqueda con yt-search
+        let search = await yts(args.join(" "));
+        let video = search.videos[0];
+        if (!video) {
+            await m.react('✖️');
+            return conn.reply(m.chat, '*`No se encontraron resultados.`*', m);
+        }
 
-  let searchQuery = args.join(' ');
-  
-  try {
-    await m.react('🕒');
+        const { title, thumbnail, timestamp, author, url, ago } = video;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+        // 3. Diseño del mensaje informativo
+        let messageText = `*╔═══════『 DESCARGAS 』══════╗*\n`;
+        messageText += `*┃* 🏷️ *Título:* ${title}\n`;
+        messageText += `*┃* ⌛ *Duración:* ${timestamp}\n`;
+        messageText += `*┃* 👤 *Autor:* ${author.name}\n`;
+        messageText += `*┃* 📆 *Publicado:* ${convertTimeToSpanish(ago)}\n`;
+        messageText += `*┃* 🖇️ *Url:* ${url}\n`;
+        messageText += `*╚════════════════════╝*\n\n`;
+        messageText += `> *Enviando audio, por favor espera...*`;
 
-    // API Stellarwa con tu Key
-    const query = encodeURIComponent(searchQuery);
-    const apiUrl = `https://api.stellarwa.xyz/dl/youtubeplay?query=${query}&key=GataDios`;
-    
-    console.log('Llamando a API Stellarwa:', apiUrl);
+        // 4. Enviar la miniatura con la información
+        await conn.sendMessage(m.chat, { 
+            image: { url: thumbnail }, 
+            caption: messageText 
+        }, { quoted: m });
 
-    const apiResponse = await fetch(apiUrl, { 
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-    
-    clearTimeout(timeoutId);
+        // 5. Proceso de descarga (Consumiendo la API para obtener el archivo)
+        // Usamos la API de Lolhuman con una apikey pública común
+        let res = await fetch(`https://api.lolhuman.xyz/api/ytaudio2?apikey=GataDios&url=${url}`);
+        let json = await res.json();
 
-    if (!apiResponse.ok) {
-      throw new Error(`API error: ${apiResponse.status}`);
+        if (json.status !== 200 || !json.result) {
+            throw new Error('La API de descarga no pudo procesar el video.');
+        }
+
+        // 6. Envío del archivo de audio final
+        await conn.sendMessage(m.chat, { 
+            audio: { url: json.result.link }, 
+            mimetype: 'audio/mp4', 
+            fileName: `${title}.mp3` 
+        }, { quoted: m });
+
+        await m.react('✅');
+
+    } catch (e) {
+        console.error(e);
+        await m.react('✖️');
+        conn.reply(m.chat, `*`Error al procesar la solicitud:`*\n${e.message}`, m);
     }
-
-    const json = await apiResponse.json();
-
-    // Cambiado de data.result a json.data según tu ejemplo
-    if (!json.status || !json.data) {
-      await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se encontró el contenido en esta API.\n\n*Pantheon Bot*`);
-    }
-
-    // Extraemos los datos exactos del JSON que me pasaste
-    const { title, thumbnail, download, url: video_url, duration } = json.data;
-
-    if (!download) {
-      await m.react('✖️');
-      return m.reply('*✖️ Error:* No hay enlace de descarga disponible para este audio.\n\n*Pantheon Bot*');
-    }
-
-    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
-    
-    console.log('Descargando audio desde CDN...');
-
-    const audioResponse = await fetch(download, {
-      signal: AbortSignal.timeout(60000) // 1 minuto para descargar
-    });
-
-    if (!audioResponse.ok) throw new Error(`Error en el servidor de descarga: ${audioResponse.status}`);
-
-    const arrayBuffer = await audioResponse.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    
-    if (buffer.length > MAX_SIZE_BYTES) {
-      throw new Error(`Archivo muy pesado (${(buffer.length/1024/1024).toFixed(1)}MB). Máximo ${MAX_SIZE_MB}MB`);
-    }
-
-    // Info del mensaje
-    const sizeMB = (buffer.length / 1024 / 1024).toFixed(1);
-    const infoText = `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${sizeMB}MB\n\n*Pantheon Bot*`;
-
-    // Enviar Miniatura + Info
-    if (thumbnail) {
-      await conn.sendMessage(m.chat, {
-        image: { url: thumbnail },
-        caption: infoText,
-      }, { quoted: m });
-    } else {
-      await conn.sendMessage(m.chat, { text: infoText }, { quoted: m });
-    }
-
-    // Enviar el archivo de Audio
-    await conn.sendMessage(m.chat, {
-      audio: buffer,
-      mimetype: 'audio/mpeg',
-      fileName: `${title}.mp3`,
-    }, { quoted: m });
-
-    await m.react('✅');
-    
-  } catch (error) {
-    console.error('Error en el comando play:', error);
-    
-    if (error.name === 'AbortError') {
-      await m.react('⏰');
-      return m.reply(`⏰ *Timeout* - El servidor tardó mucho en responder.\n\n*Pantheon Bot*`);
-    }
-    
-    if (error.message.includes('muy pesado')) {
-      await m.react('📏');
-      return m.reply(`⚠️ ${error.message}\n\n*Pantheon Bot*`);
-    }
-    
-    await m.react('✖️');
-    m.reply('⚠️ Falló la descarga. Intenta con otro nombre o URL.\n\n*Pantheon Bot*');
-  }
 };
 
-handler.help = ['play <nombre|URL>'];
-handler.command = ['play'];
+handler.help = ['play'];
 handler.tags = ['descargas'];
+handler.command = ['play', 'play2'];
 
 export default handler;
+
+// Funciones auxiliares
+function convertTimeToSpanish(timeText) {
+    if (!timeText) return 'Reciente';
+    return timeText
+        .replace(/year/g, 'año').replace(/years/g, 'años')
+        .replace(/month/g, 'mes').replace(/months/g, 'meses')
+        .replace(/day/g, 'día').replace(/days/g, 'días')
+        .replace(/hour/g, 'hora').replace(/hours/g, 'horas')
+        .replace(/minute/g, 'minuto').replace(/minutes/g, 'minutos')
+        .replace(/ago/g, 'atrás');
+}
