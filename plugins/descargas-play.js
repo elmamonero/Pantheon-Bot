@@ -2,12 +2,12 @@ import yts from 'yt-search';
 import fetch from 'node-fetch';
 
 const handler = async (m, { conn, args, usedPrefix, command }) => {
-    // Verificamos si hay texto después del comando
-    if (!args[0]) return conn.reply(m.chat, `*🐱 Ingresa un título de Youtube.*\n\n*🐈 Ejemplo:* ${usedPrefix + command} Corazón Serrano - Mix Poco Yo`, m);
+    // Verificamos que el usuario ingrese un título o búsqueda
+    if (!args[0]) return conn.reply(m.chat, '*🐱 Ingresa el nombre de la canción.*\n\n*🐈 Ejemplo:* ' + usedPrefix + command + ' Corazón Serrano - Mix Poco Yo', m);
 
     await m.react('🕓');
     try {
-        // Realizamos la búsqueda
+        // Realiza la búsqueda en YouTube
         let search = await yts(args.join(" "));
         let video = search.videos[0];
 
@@ -17,20 +17,21 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
         }
 
         const { title, thumbnail, timestamp, author, url, ago } = video;
-        let imageBuffer = await (await fetch(thumbnail)).buffer();
+        
+        // Obtenemos la miniatura
+        let response = await fetch(thumbnail);
+        let imageBuffer = await response.buffer();
 
-        // Texto informativo (Estructura similar a tu primer código)
-        let messageText = `\`DESCARGAS - PLAY\`\n\n`;
+        // Estructura de texto informativa
+        let messageText = `\`YOUTUBE - MP3\`\n\n`;
         messageText += `*📌 Título:* ${title}\n`;
         messageText += `*⌛ Duración:* ${timestamp}\n`;
         messageText += `*👤 Autor:* ${author.name}\n`;
         messageText += `*📆 Publicado:* ${convertTimeToSpanish(ago)}\n`;
         messageText += `*🖇️ Url:* ${url}\n\n`;
-        messageText += `*Escribe el comando para descargar:* \n`;
-        messageText += `> *${usedPrefix}ytmp3* ${url}\n`;
-        messageText += `> *${usedPrefix}ytmp4* ${url}`;
+        messageText += `> *Enviando audio, por favor espera...*`;
 
-        // Enviamos la imagen con la información
+        // Enviamos la información del video
         await conn.sendMessage(m.chat, {
             image: imageBuffer,
             caption: messageText,
@@ -47,22 +48,49 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
             }
         }, { quoted: m });
 
-        await m.react('✅');
+        // Proceso de descarga automática de MP3
+        // Intentamos con la API primaria
+        let downloadRes = await fetch(`https://api.lolhuman.xyz/api/ytaudio2?apikey=GataDios&url=${url}`);
+        let json = await downloadRes.json();
+
+        if (json.status === 200 && json.result.link) {
+            await conn.sendMessage(m.chat, {
+                audio: { url: json.result.link },
+                mimetype: 'audio/mp4',
+                fileName: title + '.mp3'
+            }, { quoted: m });
+            await m.react('✅');
+        } else {
+            // Intento con API de respaldo si la primera falla o está saturada
+            let backupRes = await fetch(`https://api.zenkey.my.id/api/download/ytmp3?url=${url}&apikey=zenkey`);
+            let backupJson = await backupRes.json();
+            
+            if (backupJson.status && backupJson.result.download.url) {
+                await conn.sendMessage(m.chat, {
+                    audio: { url: backupJson.result.download.url },
+                    mimetype: 'audio/mp4',
+                    fileName: title + '.mp3'
+                }, { quoted: m });
+                await m.react('✅');
+            } else {
+                throw new Error('Servidores de audio ocupados.');
+            }
+        }
 
     } catch (e) {
         console.error(e);
         await m.react('✖️');
-        conn.reply(m.chat, '*`Error al buscar el video.`*', m);
+        conn.reply(m.chat, '*`Error al enviar el audio:`* ' + e.message, m);
     }
 };
 
 handler.help = ['play'];
 handler.tags = ['descargas'];
-handler.command = ['play', 'play2'];
+handler.command = ['play']; // Solo responde a .play
 
 export default handler;
 
-// Función para traducir el tiempo (mejorada para que no dé error de sintaxis)
+// Función de traducción para la fecha de publicación
 function convertTimeToSpanish(timeText) {
     if (!timeText) return 'Reciente';
     return timeText
