@@ -6,27 +6,22 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
     await m.react('🕓');
     try {
-        let search = await yts(args.join(" "));
-        let video = search.videos[0];
+        const search = await yts(args.join(" "));
+        const video = search.videos[0];
         
         if (!video) {
             await m.react('✖️');
             return conn.reply(m.chat, '*`No se encontraron resultados.`*', m);
         }
 
-        // Extraemos los datos necesarios de forma segura
-        const title = video.title;
-        const thumbnail = video.thumbnail;
-        const timestamp = video.timestamp;
-        const author = video.author.name;
-        const url = video.url;
-        const published = video.ago || 'Reciente';
+        const { title, thumbnail, timestamp, url } = video;
+        const authorName = video.author.name || 'Desconocido';
+        const ago = video.ago || 'Reciente';
 
         let messageText = `*╔═══════『 DESCARGAS 』══════╗*\n`;
         messageText += `*┃* 🏷️ *Título:* ${title}\n`;
         messageText += `*┃* ⌛ *Duración:* ${timestamp}\n`;
-        messageText += `*┃* 👤 *Autor:* ${author}\n`;
-        messageText += `*┃* 📆 *Publicado:* ${convertTimeToSpanish(published)}\n`;
+        messageText += `*┃* 👤 *Autor:* ${authorName}\n`;
         messageText += `*┃* 🖇️ *Url:* ${url}\n`;
         messageText += `*╚════════════════════╝*\n\n`;
         messageText += `> *Enviando audio, por favor espera...*`;
@@ -36,25 +31,49 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
             caption: messageText 
         }, { quoted: m });
 
-        // Llamada a la API de descarga
-        let res = await fetch(`https://api.lolhuman.xyz/api/ytaudio2?apikey=GataDios&url=${url}`);
-        let json = await res.json();
+        let downloadUrl = null;
+        
+        // INTENTO 1: API de Lolhuman
+        try {
+            let res = await fetch(`https://api.lolhuman.xyz/api/ytaudio2?apikey=GataDios&url=${url}`);
+            let json = await res.json();
+            if (json.status === 200 && json.result.link) {
+                downloadUrl = json.result.link;
+            }
+        } catch (err) {
+            console.log('Error en API 1, intentando API 2...');
+        }
 
-        if (json.status === 200 && json.result) {
+        // INTENTO 2: API Alternativa (si la primera falló)
+        if (!downloadUrl) {
+            try {
+                let res2 = await fetch(`https://api.zenkey.my.id/api/download/ytmp3?url=${url}&apikey=zenkey`);
+                let json2 = await res2.json();
+                if (json2.status && json2.result.download.url) {
+                    downloadUrl = json2.result.download.url;
+                }
+            } catch (err) {
+                console.log('Error en API 2');
+            }
+        }
+
+        // ENVIAR EL AUDIO
+        if (downloadUrl) {
             await conn.sendMessage(m.chat, { 
-                audio: { url: json.result.link }, 
+                audio: { url: downloadUrl }, 
                 mimetype: 'audio/mp4', 
                 fileName: `${title}.mp3` 
             }, { quoted: m });
             await m.react('✅');
         } else {
-            throw new Error('API Error');
+            throw new Error('No se pudo obtener el enlace de descarga.');
         }
 
     } catch (e) {
         console.error(e);
         await m.react('✖️');
-        conn.reply(m.chat, `*`Error al procesar la solicitud:`*`, m);
+        // Aquí mostramos el error real en la consola para saber qué pasó
+        conn.reply(m.chat, `*`Error:`* ${e.message}`, m);
     }
 };
 
@@ -63,15 +82,3 @@ handler.tags = ['descargas'];
 handler.command = ['play', 'play2'];
 
 export default handler;
-
-function convertTimeToSpanish(timeText) {
-    if (!timeText || typeof timeText !== 'string') return 'Reciente';
-    return timeText
-        .replace(/year/g, 'año').replace(/years/g, 'años')
-        .replace(/month/g, 'mes').replace(/months/g, 'meses')
-        .replace(/week/g, 'semana').replace(/weeks/g, 'semanas')
-        .replace(/day/g, 'día').replace(/days/g, 'días')
-        .replace(/hour/g, 'hora').replace(/hours/g, 'horas')
-        .replace(/minute/g, 'minuto').replace(/minutes/g, 'minutos')
-        .replace(/ago/g, 'atrás');
-}
