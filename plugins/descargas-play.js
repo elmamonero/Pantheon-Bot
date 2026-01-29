@@ -14,16 +14,16 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
 
         await conn.sendMessage(m.chat, {
             image: { url: thumbnail },
-            caption: `*📌 Título:* ${title}\n*⌛ Duración:* ${timestamp}\n*👤 Autor:* ${author.name}\n\n> *Buscando servidor disponible...*`
+            caption: `*📌 Título:* ${title}\n*⌛ Duración:* ${timestamp}\n*👤 Autor:* ${author.name}\n\n> *Buscando en servidores premium...*`
         }, { quoted: m });
 
-        // LISTA DE APIS DE RESPALDO (Si una cae, usa la otra)
+        // LISTA DE APIS ACTUALIZADAS 2026
         const apiSources = [
-            `https://api.siputzx.my.id/api/d/ytmp3?url=${url}`,
-            `https://api.zenkey.my.id/api/download/ytmp3?url=${url}&apikey=zenkey`,
-            `https://api.lolhuman.xyz/api/ytaudio2?apikey=GataDios&url=${url}`,
-            `https://api.agungny.my.id/api/youtube-audio?url=${url}`,
-            `https://deliriussapi-oficial.vercel.app/download/ytmp3?url=${url}`
+            `https://api.debx.site/api/v1/ytmp3?url=${url}`,
+            `https://api.vreden.my.id/api/ytmp3?url=${url}`,
+            `https://api.neoxr.eu/api/youtube?url=${url}`,
+            `https://api.miftah.my.id/api/download/ytmp3?url=${url}`,
+            `https://api.yanzbotz.my.id/api/downloader/ytmp3?url=${url}`
         ];
 
         let success = false;
@@ -32,8 +32,8 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
                 let res = await fetch(api);
                 let json = await res.json();
                 
-                // Extraer el link sin importar cómo se llame en el JSON
-                let dl = json.result?.link || json.result?.download?.url || json.data?.url || json.url || json.link;
+                // Las APIs modernas suelen guardar el link en diferentes lugares
+                let dl = json.result?.url || json.result?.download || json.data?.url || json.data?.link || json.url;
 
                 if (dl) {
                     await conn.sendMessage(m.chat, {
@@ -43,19 +43,30 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
                     }, { quoted: m });
                     success = true;
                     await m.react('✅');
-                    break; // Salir del bucle si funcionó
+                    break; 
                 }
             } catch (e) {
                 console.log(`Fallo en: ${api}`);
-                continue; // Probar la siguiente API
+                continue; 
             }
         }
 
-        if (!success) throw new Error('Todos los servidores están caídos.');
+        if (!success) {
+            // ÚLTIMO RECURSO: API de descarga directa de emergencia
+            let emergency = await fetch(`https://api.darky.me/api/ytmp3?url=${url}`);
+            let emJson = await emergency.json();
+            if (emJson.url) {
+                await conn.sendMessage(m.chat, { audio: { url: emJson.url }, mimetype: 'audio/mp4' }, { quoted: m });
+                await m.react('✅');
+                success = true;
+            }
+        }
+
+        if (!success) throw new Error('Servidores fuera de servicio.');
 
     } catch (e) {
         await m.react('✖️');
-        conn.reply(m.chat, `*❌ Error total:* No se pudo obtener el audio de ninguna fuente.`, m);
+        conn.reply(m.chat, `*❌ Error total:* Intenta de nuevo en unos minutos o usa un nombre más corto.`, m);
     }
 };
 
