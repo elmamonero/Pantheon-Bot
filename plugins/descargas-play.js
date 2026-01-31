@@ -7,21 +7,30 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'Ootaizumi', 
-    url: `https://api.ootaizumi.web.id/downloader/youtube/play?query=`,
-    getAudioUrl: (data) => data?.result?.download,
-    getTitle: (data) => data?.result?.title,
-    getThumb: (data) => data?.result?.thumbnail || data?.result?.image,
-    getDuration: (data) => data?.result?.duration?.timestamp || data?.result?.timestamp
-  },
-  { 
-    name: 'Stellar', 
+    name: 'Stellar-v1', 
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
     params: '&key=GataDios',
     getAudioUrl: (data) => data?.result?.audio || data?.result?.download || data?.result?.url,
     getTitle: (data) => data?.result?.title,
     getThumb: (data) => data?.result?.thumbnail || data?.result?.image,
     getDuration: (data) => data?.result?.duration
+  },
+  { 
+    name: 'Stellar-v2-Yuki', 
+    url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
+    params: '&key=Yuki-v2',
+    getAudioUrl: (data) => data?.result?.audio || data?.result?.download || data?.result?.url,
+    getTitle: (data) => data?.result?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.result?.image,
+    getDuration: (data) => data?.result?.duration
+  },
+  { 
+    name: 'Ootaizumi', 
+    url: `https://api.ootaizumi.web.id/downloader/youtube/play?query=`,
+    getAudioUrl: (data) => data?.result?.download,
+    getTitle: (data) => data?.result?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.result?.image,
+    getDuration: (data) => data?.result?.duration?.timestamp || data?.result?.timestamp
   },
   { 
     name: 'Adonix', 
