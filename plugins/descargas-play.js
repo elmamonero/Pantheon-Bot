@@ -5,7 +5,6 @@ import { savetube } from '../lib/yt-savetube.js';
 
 const LimitAud = 725 * 1024 * 1024;
 const LimitVid = 425 * 1024 * 1024;
-const youtubeRegexID = /(?:youtu.be/ | youtube.com / ( ? : watch ? v = | embed / ))([a - zA - Z0 - 9_ - ] { 11 }) / ;
 const userRequests = {};
 
 const handler = async (m, { conn, command, args, text, usedPrefix }) => {
@@ -17,15 +16,14 @@ ${usedPrefix + command} emilia 420`);
     
     const tipoDescarga = ['play', 'musica', 'audio', 'play3'].includes(command) ? 'audio' : 'video';
     
-    if (userRequests[m.sender]) return await conn.reply(m.chat, `⏳ Espera, ya tienes una descarga en curso...`, m);
+    if (userRequests[m.sender]) return conn.reply(m.chat, `⏳ Espera, ya tienes una descarga en curso...`, m);
     userRequests[m.sender] = true;
     
     try {
         await m.react('🕓');
         
-        let videoIdMatch = text.match(youtubeRegexID);
-        let query = videoIdMatch ? `https://youtu.be/${videoIdMatch[1]}` : text;
-        const searchResult = await yts(query);
+        // BÚSQUEDA SIMPLE - SIN REGEX
+        const searchResult = await yts(text);
         const video = searchResult.videos[0];
         
         if (!video) {
@@ -59,13 +57,13 @@ ${usedPrefix + command} emilia 420`);
         const quality = isAudio ? 'mp3' : '720';
         
         // SAVETUBE
-        console.log('🔍 Savetube attempt...');
+        console.log('🔍 Probando savetube...');
         try {
             const resSave = await savetube.download(url, quality);
-            console.log('Savetube res:', JSON.stringify(resSave, null, 2));
-            if (resSave.status && resSave.result?.download) {
+            console.log('Savetube:', resSave);
+            if (resSave.status && resSave.result && resSave.result.download) {
                 downloadUrl = resSave.result.download;
-                console.log('✅ Savetube success');
+                console.log('✅ Savetube OK');
             }
         } catch (e) {
             console.log('❌ Savetube error:', e.message);
@@ -73,22 +71,23 @@ ${usedPrefix + command} emilia 420`);
         
         // FALLBACK YT-DL
         if (!downloadUrl) {
-            console.log('🔄 YTDL fallback...');
+            console.log('🔄 Usando ytdl...');
             try {
                 const info = await ytdl.getInfo(url);
-                const formats = ytdl.filterFormats(info.formats, isAudio ? 'audioonly' : 'video');
-                downloadUrl = ytdl.chooseFormat(formats, { quality: isAudio ? 'highestaudio' : 'highestvideo' }).url;
-                console.log('✅ YTDL success');
+                const format = ytdl.chooseFormat(info.formats, {
+                    quality: isAudio ? 'highestaudio' : 'highestvideo[height<=720]'
+                });
+                downloadUrl = format.url;
+                console.log('✅ YTDL OK');
             } catch (e) {
                 console.log('❌ YTDL error:', e.message);
-                throw new Error('Ambas fuentes fallaron.');
+                throw new Error('No se pudo descargar el video.');
             }
         }
         
         const fileSize = await getFileSize(downloadUrl);
         const isDocument = ['play3', 'play4', 'playdoc'].includes(command);
-        
-        const fileName = `${title.slice(0, 50)}.${isAudio ? 'mp3' : 'mp4'}`;
+        const fileName = `${title.slice(0, 50).replace(/[^ws-]/gi, '')}.${isAudio ? 'mp3' : 'mp4'}`;
         
         if (isAudio) {
             if (isDocument || fileSize > LimitAud) {
@@ -105,23 +104,27 @@ ${usedPrefix + command} emilia 420`);
                 }, { quoted: m });
             }
         } else {
-            const opts = {
-                video: { url: downloadUrl },
-                mimetype: 'video/mp4',
-                fileName,
-                caption: `🔰 ${title}`
-            };
             if (isDocument || fileSize > LimitVid) {
-                opts.document = opts.video;
-                delete opts.video;
+                await conn.sendMessage(m.chat, {
+                    document: { url: downloadUrl },
+                    mimetype: 'video/mp4',
+                    fileName,
+                    caption: `🔰 ${title}`
+                }, { quoted: m });
+            } else {
+                await conn.sendMessage(m.chat, {
+                    video: { url: downloadUrl },
+                    mimetype: 'video/mp4',
+                    fileName,
+                    caption: `🔰 ${title}`
+                }, { quoted: m });
             }
-            await conn.sendMessage(m.chat, opts, { quoted: m });
         }
         
         await m.react('✅');
         
     } catch (error) {
-        console.error('Handler error:', error);
+        console.error('Error:', error);
         await m.react('❌');
         m.reply(`*❌ Error:* ${error.message}`);
     } finally {
