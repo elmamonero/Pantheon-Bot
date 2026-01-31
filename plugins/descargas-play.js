@@ -33,9 +33,8 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
 
         const { title, thumbnail, url, timestamp } = video;
 
-        // Mensaje con carátula y botones/info
         await conn.sendMessage(m.chat, { 
-            text: `📌 *Título:* ${title}\n⏰ *Duración:* ${timestamp}\n📥 *Tipo:* ${tipoDescarga}\n\n> *Descargando mediante servidores de alta capacidad...*`,
+            text: `📌 *Título:* ${title}\n⏰ *Duración:* ${timestamp}\n📥 *Tipo:* ${tipoDescarga}\n\n> *Descargando mediante Savetube / OGMP3...*`,
             contextInfo: {
                 externalAdReply: {
                     title: title,
@@ -50,41 +49,45 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
         }, { quoted: m });
 
         let downloadUrl = null;
-        const isAudio = ['play', 'musica', 'play3'].includes(command);
+        const isAudio = ['play', 'musica', 'audio', 'play3'].includes(command);
         const quality = isAudio ? '320' : '720';
 
-        // --- Intento 1: Savetube ---
+        // --- INTENTO ÚNICAMENTE CON TUS LIBRERÍAS ---
+        
+        // 1. Intentar con Savetube
         try {
             const resSave = await savetube.download(url, quality);
-            downloadUrl = resSave?.result?.download || resSave?.download || resSave?.link;
+            // Intentamos capturar el link en todas las rutas posibles que suelen usar estas libs
+            downloadUrl = resSave?.result?.download || resSave?.download || resSave?.link || resSave?.url || resSave?.result?.url;
         } catch (e) {
-            console.log("Savetube falló, intentando con OGMP3...");
+            console.log("Error en Savetube local:", e.message);
         }
 
-        // --- Intento 2: OGMP3 (Si Savetube falló) ---
+        // 2. Intentar con OGMP3 (Solo si Savetube falló)
         if (!downloadUrl) {
             try {
                 const resOG = await ogmp3.download(url, quality, isAudio ? 'audio' : 'video');
-                downloadUrl = resOG?.result?.download || resOG?.download || resOG?.link;
+                downloadUrl = resOG?.result?.download || resOG?.download || resOG?.link || resOG?.url || resOG?.result?.url;
             } catch (e) {
-                console.log("OGMP3 también falló.");
+                console.log("Error en OGMP3 local:", e.message);
             }
         }
 
-        if (!downloadUrl) throw new Error('No se pudo obtener el enlace de descarga de ninguno de los servidores.');
+        // --- VALIDACIÓN FINAL ---
+        if (!downloadUrl) {
+            throw new Error('No se pudo obtener el enlace de descarga de Savetube ni de OGMP3. Es posible que las librerías necesiten actualización.');
+        }
 
         const fileSize = await getFileSize(downloadUrl);
         const isDocument = ['play3', 'play4', 'playdoc'].includes(command);
 
         if (isAudio) {
-            // Envío de Audio / MP3
             if (isDocument || fileSize > LimitAud) {
                 await conn.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
             } else {
                 await conn.sendMessage(m.chat, { audio: { url: downloadUrl }, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
             }
         } else {
-            // Envío de Video / MP4
             if (isDocument || fileSize > LimitVid) {
                 await conn.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'video/mp4', fileName: `${title}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
             } else {
@@ -97,7 +100,7 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
     } catch (error) {
         console.error(error);
         await m.react('❌');
-        m.reply(`*❌ Error:* No se pudo completar la descarga.\n\n*Motivo:* ${error.message}`);
+        m.reply(`*❌ Error:* ${error.message}`);
     } finally {
         delete userRequests[m.sender];
     }
