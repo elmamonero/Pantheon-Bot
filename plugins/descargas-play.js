@@ -7,20 +7,12 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'Vreden', 
-    url: `https://api.vreden.my.id/api/v1/download/youtube/audio?url=`,
-    params: '&quality=128',
-    getAudioUrl: (data) => {
-      // Verifica si download.status es false (error de conversión)
-      if (data?.result?.download?.status === false) {
-        console.log('Vreden: Error de conversión -', data?.result?.download?.message);
-        return null;
-      }
-      return data?.result?.download?.url || data?.result?.url || data?.url;
-    },
-    getTitle: (data) => data?.result?.metadata?.title || data?.result?.title || data?.title,
-    getThumb: (data) => data?.result?.metadata?.thumbnail || data?.result?.metadata?.image || data?.result?.thumbnail,
-    getDuration: (data) => data?.result?.metadata?.duration?.timestamp || data?.result?.duration
+    name: 'Ootaizumi', 
+    url: `https://api.ootaizumi.web.id/downloader/youtube/play?query=`,
+    getAudioUrl: (data) => data?.result?.download,
+    getTitle: (data) => data?.result?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.result?.image,
+    getDuration: (data) => data?.result?.duration?.timestamp || data?.result?.timestamp
   },
   { 
     name: 'Adonix', 
@@ -36,7 +28,7 @@ async function getAudioFromApis(url, controller) {
   for (const api of APIS) {
     try {
       const encodedUrl = encodeURIComponent(url);
-      const apiUrl = `${api.url}${encodedUrl}${api.params || ''}`;
+      const apiUrl = `${api.url}${encodedUrl}`;
       
       console.log(`🔄 Probando ${api.name}:`, apiUrl);
       
@@ -49,7 +41,7 @@ async function getAudioFromApis(url, controller) {
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`${api.name} status:`, data?.status, 'download:', data?.result?.download?.status);
+        console.log(`${api.name} status:`, data?.status);
         
         const audioUrl = api.getAudioUrl(data);
         
@@ -64,7 +56,7 @@ async function getAudioFromApis(url, controller) {
             duration: api.getDuration(data) || 'Desconocido'
           };
         } else {
-          console.log(`❌ ${api.name}: No audio URL válida`);
+          console.log(`❌ ${api.name}: No hay audio disponible`);
         }
       }
     } catch (e) {
@@ -94,7 +86,6 @@ const handler = async (m, { conn, args, command }) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // 🔥 VREDEN SIEMPRE PRIMERO (para testing)
     const apiResult = await getAudioFromApis(url, controller);
     clearTimeout(timeoutId);
 
@@ -108,7 +99,6 @@ const handler = async (m, { conn, args, command }) => {
     const { title, thumbnail, url: audioUrl, duration, api } = apiResult;
     const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
-    // Verificar tamaño
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
     const audioResponse = await fetch(audioUrl, {
@@ -138,7 +128,6 @@ const handler = async (m, { conn, args, command }) => {
       }, { quoted: m });
     };
 
-    // Enviar info + thumbnail
     if (thumbnail) {
       try {
         const thumbResponse = await fetch(thumbnail, { signal: AbortSignal.timeout(5000) });
@@ -155,14 +144,12 @@ const handler = async (m, { conn, args, command }) => {
       await sendTextMessage(title, duration, url, stats.size, api);
     }
 
-    // Enviar audio
     await conn.sendMessage(m.chat, {
       audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
       fileName,
     }, { quoted: m });
 
-    // Cleanup
     if (fs.existsSync(dest)) fs.unlinkSync(dest);
     
     await m.react('✅');
