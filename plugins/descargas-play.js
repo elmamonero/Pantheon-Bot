@@ -2,6 +2,7 @@ import fetch from 'node-fetch';
 import yts from 'yt-search';
 import ytdl from 'ytdl-core';
 import { savetube } from '../lib/yt-savetube.js';
+import { ogmp3 } from '../lib/youtubedl.js';
 
 const LimitAud = 725 * 1024 * 1024;
 const LimitVid = 425 * 1024 * 1024;
@@ -22,7 +23,6 @@ ${usedPrefix + command} emilia 420`);
     try {
         await m.react('🕓');
         
-        // BÚSQUEDA SIMPLE - SIN REGEX
         const searchResult = await yts(text);
         const video = searchResult.videos[0];
         
@@ -38,99 +38,113 @@ ${usedPrefix + command} emilia 420`);
 ⏰ *Duración:* ${timestamp}
 📥 *Tipo:* ${tipoDescarga}
 
-> *Savetube + fallback...*`,
+> *Probando APIs...*`,
             contextInfo: {
                 externalAdReply: {
                     title: title,
-                    body: "Savetube Downloader",
+                    body: "Multi-API Downloader",
                     thumbnailUrl: thumbnail,
                     sourceUrl: url,
                     mediaType: 1,
-                    showAdAttribution: true,
-                    renderLargerThumbnail: true
+                    showAdAttribution: true
                 }
             }
         }, { quoted: m });
         
-        let downloadUrl = null;
         const isAudio = tipoDescarga === 'audio';
-        const quality = isAudio ? 'mp3' : '720';
+        const quality = isAudio ? '320' : '720';
+        const apis = isAudio ? audioApis(url, quality) : videoApis(url, quality);
         
-        // SAVETUBE
-        console.log('🔍 Probando savetube...');
-        try {
-            const resSave = await savetube.download(url, quality);
-            console.log('Savetube:', resSave);
-            if (resSave.status && resSave.result && resSave.result.download) {
-                downloadUrl = resSave.result.download;
-                console.log('✅ Savetube OK');
-            }
-        } catch (e) {
-            console.log('❌ Savetube error:', e.message);
-        }
+        const result = await tryApis(apis);
+        if (!result.url) throw new Error('Todas las APIs fallaron');
         
-        // FALLBACK YT-DL
-        if (!downloadUrl) {
-            console.log('🔄 Usando ytdl...');
-            try {
-                const info = await ytdl.getInfo(url);
-                const format = ytdl.chooseFormat(info.formats, {
-                    quality: isAudio ? 'highestaudio' : 'highestvideo[height<=720]'
-                });
-                downloadUrl = format.url;
-                console.log('✅ YTDL OK');
-            } catch (e) {
-                console.log('❌ YTDL error:', e.message);
-                throw new Error('No se pudo descargar el video.');
-            }
-        }
-        
-        const fileSize = await getFileSize(downloadUrl);
-        const isDocument = ['play3', 'play4', 'playdoc'].includes(command);
-        const fileName = `${title.slice(0, 50).replace(/[^ws-]/gi, '')}.${isAudio ? 'mp3' : 'mp4'}`;
+        const fileSize = await getFileSize(result.url);
+        const isDocument = ['play3', 'play4', 'playdoc', 'playdoc2'].includes(command);
+        const fileName = `${title.slice(0, 50)}.${isAudio ? 'mp3' : 'mp4'}`;
         
         if (isAudio) {
             if (isDocument || fileSize > LimitAud) {
                 await conn.sendMessage(m.chat, {
-                    document: { url: downloadUrl },
+                    document: { url: result.url },
                     mimetype: 'audio/mpeg',
                     fileName
                 }, { quoted: m });
             } else {
                 await conn.sendMessage(m.chat, {
-                    audio: { url: downloadUrl },
+                    audio: { url: result.url },
                     mimetype: 'audio/mpeg',
                     fileName
                 }, { quoted: m });
             }
         } else {
+            const opts = {
+                mimetype: 'video/mp4',
+                fileName,
+                caption: `🔰 ${title}`
+            };
             if (isDocument || fileSize > LimitVid) {
-                await conn.sendMessage(m.chat, {
-                    document: { url: downloadUrl },
-                    mimetype: 'video/mp4',
-                    fileName,
-                    caption: `🔰 ${title}`
-                }, { quoted: m });
+                opts.document = { url: result.url };
             } else {
-                await conn.sendMessage(m.chat, {
-                    video: { url: downloadUrl },
-                    mimetype: 'video/mp4',
-                    fileName,
-                    caption: `🔰 ${title}`
-                }, { quoted: m });
+                opts.video = { url: result.url };
             }
+            await conn.sendMessage(m.chat, opts, { quoted: m });
         }
         
         await m.react('✅');
         
     } catch (error) {
-        console.error('Error:', error);
+        console.error(error);
         await m.react('❌');
         m.reply(`*❌ Error:* ${error.message}`);
     } finally {
         delete userRequests[m.sender];
     }
 };
+
+// APIs AUDIO (prioridad: savetube > ogmp3 > externas)
+function audioApis(url, quality) {
+    return [
+        { name: 'savetube', fn: () => savetube.download(url, 'mp3') },
+        { name: 'ogmp3', fn: () => ogmp3.download(url, quality, 'audio') },
+        { name: 'dorratz', fn: () => fetch(`https://api.dorratz.com/v3/ytdl?url=${url}`).then(r => r.json()) },
+        { name: 'neoxr', fn: () => fetch(`https://api.neoxr.eu/api/youtube?url=${url}&type=audio&quality=128kbps&apikey=GataDios`).then(r => r.json()) }
+    ];
+}
+
+// APIs VIDEO
+function videoApis(url, quality) {
+    return [
+        { name: 'savetube', fn: () => savetube.download(url, '720') },
+        { name: 'ogmp3', fn: () => ogmp3.download(url, quality, 'video') },
+        { name: 'siputzx', fn: () => fetch(`https://api.siputzx.my.id/api/d/ytmp4?url=${url}`).then(r => r.json()) },
+        { name: 'neoxr', fn: () => fetch(`https://api.neoxr.eu/api/youtube?url=${url}&type=video&quality=720p&apikey=GataDios`).then(r => r.json()) }
+    ];
+}
+
+// Prueba APIs hasta encontrar una que funcione
+async function tryApis(apis) {
+    for (const api of apis) {
+        try {
+            console.log(`🔍 Probando ${api.name}...`);
+            const data = await api.fn();
+            
+            let url = null;
+            if (api.name === 'savetube' && data.result?.download) url = data.result.download;
+            else if (api.name === 'ogmp3' && data.result?.download) url = data.result.download;
+            else if (api.name === 'dorratz') url = data.medias?.find(m => m.quality === "160kbps" && m.extension === "mp3")?.url;
+            else if (api.name === 'neoxr') url = data.data?.url;
+            else if (api.name === 'siputzx') url = data.dl;
+            
+            if (url) {
+                console.log(`✅ ${api.name} OK`);
+                return { url };
+            }
+        } catch (e) {
+            console.log(`❌ ${api.name}: ${e.message}`);
+        }
+    }
+    return { url: null };
+}
 
 async function getFileSize(url) {
     try {
