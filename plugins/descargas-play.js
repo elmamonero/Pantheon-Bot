@@ -7,9 +7,17 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'Stellar-v1',           // ← NOMBRE CORRECTO
+    name: 'FAA-ytplay',           // ← PRIMERA POSICIÓN
+    url: `https://api-faa.my.id/faa/ytplay?query=`,
+    getAudioUrl: (data) => data?.result?.download || data?.data?.download || data?.url,
+    getTitle: (data) => data?.result?.title || data?.data?.title || data?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.data?.thumbnail || data?.thumb,
+    getDuration: (data) => data?.result?.duration || data?.data?.duration || data?.duration
+  },
+  { 
+    name: 'Stellar-v1-GataDios',
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
-    params: '&key=GataDios',      // ← KEY CORRECTA para v1
+    params: '&key=GataDios',
     getAudioUrl: (data) => data?.data?.download,
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
@@ -53,14 +61,21 @@ async function getAudioFromApis(url, controller) {
       const response = await fetch(apiUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Referer': 'https://api.stellarwa.xyz/'
         }
       });
 
       if (response.ok) {
         const data = await response.json();
         console.log(`${api.name} status:`, data?.status);
-        console.log(`${api.name} estructura:`, JSON.stringify(data, null, 2).substring(0, 200)); // Debug
+        console.log(`${api.name} estructura:`, JSON.stringify(data, null, 2).substring(0, 200));
+        
+        if (data?.status !== true && data?.status !== 'true') {
+          console.log(`❌ ${api.name}: Status inválido (${data?.status || 'undefined'})`);
+          continue;
+        }
         
         const audioUrl = api.getAudioUrl(data);
         
