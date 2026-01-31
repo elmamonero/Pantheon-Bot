@@ -50,7 +50,7 @@ const handler = async (m, { conn, args, command }) => {
     if (!data.status || !data.data || !data.data.url) {
       console.log('Respuesta completa de API:', JSON.stringify(data, null, 2));
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el audio.\n\n*Eli Bot*`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio.\n\n*Pantheon Bot*`);
     }
 
     const { title, thumbnail, url: audioUrl, duration } = data.data;
@@ -97,17 +97,17 @@ const handler = async (m, { conn, args, command }) => {
         const thumbBuffer = await thumbResponse.arrayBuffer();
         await conn.sendMessage(m.chat, {
           image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          caption: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
         }, { quoted: m });
       } catch (e) {
         console.log('Thumbnail falló:', e.message);
         await conn.sendMessage(m.chat, {
-          text: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          text: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
         }, { quoted: m });
       }
     } else {
       await conn.sendMessage(m.chat, {
-        text: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+        text: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
       }, { quoted: m });
     }
 
@@ -138,7 +138,7 @@ const handler = async (m, { conn, args, command }) => {
     
     console.error('Error completo:', error);
     await m.react('✖️');
-    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Eli Bot*');
+    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Pantheon Bot*');
   }
 };
 
