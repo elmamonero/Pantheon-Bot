@@ -4,12 +4,13 @@ import yts from 'yt-search';
 
 const MAX_SIZE_MB = 50;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+const API_KEY = 'AdonixKey2lph3k2117';
 
 const handler = async (m, { conn, args, command }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
   let url = args[0];
-  const isUrl = /(youtube\\.com|youtu\\.be)/.test(url);
+  const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
     const searchResults = await yts(args.join(' '));
@@ -25,78 +26,44 @@ const handler = async (m, { conn, args, command }) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // NUEVAS APIs - Usamos la primera que funcione
-    const apis = [
-      `https://api-adonix.ultraplus.click/download/ytaudio?apikey=AdonixKey2lph3k2117&url=${encodeURIComponent(url)}`,
-      `https://api.vreden.my.id/api/v1/download/play/audio?query=${encodeURIComponent(args.join(' '))}`
-    ];
+    const encodedUrl = encodeURIComponent(url);
+    const apiUrl = `https://api-adonix.ultraplus.click/download/ytaudio?apikey=${API_KEY}&url=${encodedUrl}`;
+    
+    console.log('Llamando a nueva API:', apiUrl);
 
-    let data = null;
-    let apiUsed = '';
-
-    for (const apiUrl of apis) {
-      try {
-        console.log('Probando API:', apiUrl);
-        const apiResponse = await fetch(apiUrl, { 
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-        
-        if (apiResponse.ok) {
-          data = await apiResponse.json();
-          apiUsed = apiUrl;
-          console.log('API exitosa:', apiUrl);
-          break;
-        }
-      } catch (e) {
-        console.log(`API ${apiUrl} falló:`, e.message);
-        continue;
+    const apiResponse = await fetch(apiUrl, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
-    }
-
+    });
+    
     clearTimeout(timeoutId);
 
-    if (!data) {
-      await m.react('✖️');
-      return m.reply(`*✖️ Error:* Todas las APIs fallaron.\\n\\n*Eli Bot*`);
+    if (!apiResponse.ok) {
+      throw new Error(`API error: ${apiResponse.status}`);
     }
 
-    // Adaptar respuesta según la API usada
-    let title, thumbnail, audioUrl, video_url, duration;
+    const data = await apiResponse.json();
+
+    if (!data.status || !data.result || !data.result.url) {
+      await m.react('✖️');
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio.\n\n*Eli Bot*`);
+    }
+
+    const { title, thumbnail, duration } = data.result;
+    const audioUrl = data.result.url;
     
-    if (apiUsed.includes('adonix')) {
-      // API Adonix format
-      title = data.title || 'Audio de YouTube';
-      thumbnail = data.thumb || data.thumbnail;
-      audioUrl = data.url || data.download_url;
-      duration = data.duration || 'Desconocido';
-      video_url = url;
-    } else {
-      // API Vreden format  
-      title = data.title || data.result?.title || 'Audio de YouTube';
-      thumbnail = data.thumbnail || data.result?.thumbnail;
-      audioUrl = data.result?.download_url || data.download_url;
-      duration = data.duration || data.result?.duration || 'Desconocido';
-      video_url = data.video_url || url;
-    }
+    const fileName = `${title?.replace(/[^\w\s-]/g, '') || 'audio'}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
-    if (!audioUrl) {
-      await m.react('✖️');
-      return m.reply('*✖️ Error:* No hay enlace de descarga disponible\\n\\n*Eli Bot*');
-    }
-
-    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
-
-    // Descarga silenciosa
+    // Descarga silenciosa para verificar tamaño
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
     console.log('Descargando audio desde:', audioUrl);
 
     const audioResponse = await fetch(audioUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Referer': 'https://youtube.com/',
       },
       signal: AbortSignal.timeout(20000)
@@ -124,21 +91,21 @@ const handler = async (m, { conn, args, command }) => {
         const thumbBuffer = await thumbResponse.arrayBuffer();
         await conn.sendMessage(m.chat, {
           image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          caption: `🎵 *${title || 'Audio de YouTube'}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
         }, { quoted: m });
       } catch (e) {
         console.log('Thumbnail falló:', e.message);
         await conn.sendMessage(m.chat, {
-          text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          text: `🎵 *${title || 'Audio de YouTube'}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
         }, { quoted: m });
       }
     } else {
       await conn.sendMessage(m.chat, {
-        text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+        text: `🎵 *${title || 'Audio de YouTube'}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
       }, { quoted: m });
     }
 
-    // Audio directo (primero para mejor UX)
+    // Audio directo
     await conn.sendMessage(m.chat, {
       audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
