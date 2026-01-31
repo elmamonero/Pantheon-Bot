@@ -13,7 +13,7 @@ const userRequests = {};
 const handler = async (m, { conn, command, args, text, usedPrefix }) => {
     if (!text) return m.reply(`*🤔 ¿Qué está buscando?*\n*Ingrese el nombre de la canción o el enlace.*\n\n*Ejemplo:*\n${usedPrefix + command} emilia 420`);
 
-    const tipoDescarga = ['play', 'musica', 'play3'].includes(command) ? 'audio' : 'video';
+    const tipoDescarga = ['play', 'musica', 'audio', 'play3'].includes(command) ? 'audio' : 'video';
     
     if (userRequests[m.sender]) return await conn.reply(m.chat, `⏳ Espera, ya tienes una descarga en curso...`, m);
     userRequests[m.sender] = true;
@@ -38,7 +38,7 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
             contextInfo: {
                 externalAdReply: {
                     title: title,
-                    body: "YouTube Downloader",
+                    body: "Descargador local",
                     thumbnailUrl: thumbnail,
                     sourceUrl: url,
                     mediaType: 1,
@@ -52,18 +52,16 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
         const isAudio = ['play', 'musica', 'audio', 'play3'].includes(command);
         const quality = isAudio ? '320' : '720';
 
-        // --- INTENTO ÚNICAMENTE CON TUS LIBRERÍAS ---
-        
-        // 1. Intentar con Savetube
+        // --- INTENTO 1: SAVETUBE (LOCAL) ---
         try {
             const resSave = await savetube.download(url, quality);
-            // Intentamos capturar el link en todas las rutas posibles que suelen usar estas libs
+            // Buscamos el link en todas las propiedades posibles de la respuesta
             downloadUrl = resSave?.result?.download || resSave?.download || resSave?.link || resSave?.url || resSave?.result?.url;
         } catch (e) {
             console.log("Error en Savetube local:", e.message);
         }
 
-        // 2. Intentar con OGMP3 (Solo si Savetube falló)
+        // --- INTENTO 2: OGMP3 (LOCAL) ---
         if (!downloadUrl) {
             try {
                 const resOG = await ogmp3.download(url, quality, isAudio ? 'audio' : 'video');
@@ -73,9 +71,8 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
             }
         }
 
-        // --- VALIDACIÓN FINAL ---
         if (!downloadUrl) {
-            throw new Error('No se pudo obtener el enlace de descarga de Savetube ni de OGMP3. Es posible que las librerías necesiten actualización.');
+            throw new Error('No se pudo obtener el enlace de descarga de tus librerías.');
         }
 
         const fileSize = await getFileSize(downloadUrl);
