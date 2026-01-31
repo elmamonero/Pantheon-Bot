@@ -7,16 +7,13 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'Stellar-v1', 
+    name: 'Stellar-v1-Yuki', 
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
     params: '&key=GataDios',
-    getAudioUrl: (data) => {
-      // v1 puede tener diferente estructura, prueba ambas
-      return data?.data?.download || data?.result?.download || data?.result?.audio;
-    },
-    getTitle: (data) => data?.data?.title || data?.result?.title,
-    getThumb: (data) => data?.data?.thumbnail || data?.result?.thumbnail || data?.result?.image,
-    getDuration: (data) => data?.data?.duration || data?.result?.duration
+    getAudioUrl: (data) => data?.data?.download,
+    getTitle: (data) => data?.data?.title,
+    getThumb: (data) => data?.data?.thumbnail,
+    getDuration: (data) => data?.data?.duration
   },
   { 
     name: 'Stellar-v2-Yuki', 
