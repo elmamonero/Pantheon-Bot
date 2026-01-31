@@ -10,10 +10,13 @@ const APIS = [
     name: 'Stellar-v1', 
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
     params: '&key=GataDios',
-    getAudioUrl: (data) => data?.data?.download,
-    getTitle: (data) => data?.data?.title,
-    getThumb: (data) => data?.data?.thumbnail,
-    getDuration: (data) => data?.data?.duration
+    getAudioUrl: (data) => {
+      // v1 puede tener diferente estructura, prueba ambas
+      return data?.data?.download || data?.result?.download || data?.result?.audio;
+    },
+    getTitle: (data) => data?.data?.title || data?.result?.title,
+    getThumb: (data) => data?.data?.thumbnail || data?.result?.thumbnail || data?.result?.image,
+    getDuration: (data) => data?.data?.duration || data?.result?.duration
   },
   { 
     name: 'Stellar-v2-Yuki', 
@@ -60,6 +63,7 @@ async function getAudioFromApis(url, controller) {
       if (response.ok) {
         const data = await response.json();
         console.log(`${api.name} status:`, data?.status);
+        console.log(`${api.name} estructura:`, JSON.stringify(data, null, 2).substring(0, 200)); // Debug
         
         const audioUrl = api.getAudioUrl(data);
         
