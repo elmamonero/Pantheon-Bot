@@ -7,14 +7,6 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'Adonix', 
-    url: `https://api-adonix.ultraplus.click/download/ytaudio?apikey=AdonixKey2lph3k2117&url=`,
-    getAudioUrl: (data) => data?.data?.url,
-    getTitle: (data) => data?.data?.title,
-    getThumb: (data) => data?.data?.thumbnail,
-    getDuration: (data) => data?.data?.duration
-  },
-  { 
     name: 'Vreden', 
     url: `https://api.vreden.my.id/api/v1/download/youtube/audio?url=`,
     params: '&quality=128',
@@ -22,6 +14,14 @@ const APIS = [
     getTitle: (data) => data?.result?.title || data?.title,
     getThumb: (data) => data?.result?.thumbnail || data?.thumbnail,
     getDuration: (data) => data?.result?.duration || data?.duration
+  },
+  { 
+    name: 'Adonix', 
+    url: `https://api-adonix.ultraplus.click/download/ytaudio?apikey=AdonixKey2lph3k2117&url=`,
+    getAudioUrl: (data) => data?.data?.url,
+    getTitle: (data) => data?.data?.title,
+    getThumb: (data) => data?.data?.thumbnail,
+    getDuration: (data) => data?.data?.duration
   }
 ];
 
@@ -83,7 +83,7 @@ const handler = async (m, { conn, args, command }) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // 🔥 SISTEMA DE APIs SECUENCIAL
+    // 🔥 SISTEMA DE APIs SECUENCIAL (Vreden PRIMERO)
     const apiResult = await getAudioFromApis(url, controller);
     clearTimeout(timeoutId);
 
@@ -120,6 +120,13 @@ const handler = async (m, { conn, args, command }) => {
 
     fs.writeFileSync(dest, Buffer.from(arrayBuffer));
     const stats = fs.statSync(dest);
+
+    // Función auxiliar para enviar mensaje de texto (CORREGIDA)
+    const sendTextMessage = (title, duration, url, size, apiName) => {
+      return conn.sendMessage(m.chat, {
+        text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${url}\n💾 ${(size/1024/1024).toFixed(1)}MB\n🔗 *${apiName} API*\n\n*Eli Bot*`,
+      }, { quoted: m });
+    };
 
     // Enviar info + thumbnail
     if (thumbnail) {
@@ -166,13 +173,6 @@ const handler = async (m, { conn, args, command }) => {
     m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Eli Bot*');
   }
 };
-
-// Función auxiliar para mensaje de texto
-async function sendTextMessage(title, duration, url, size, api) {
-  return await conn.sendMessage(m.chat, {
-    text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${url}\n💾 ${(size/1024/1024).toFixed(1)}MB\n🔗 *${api} API*\n\n*Eli Bot*`,
-  }, { quoted: m });
-}
 
 handler.help = ['play <nombre|URL>'];
 handler.command = ['play'];
