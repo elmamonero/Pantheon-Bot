@@ -36,7 +36,7 @@ const handler = async (m, { conn, args }) => {
                 // Extraer link (cada API lo llama distinto)
                 downloadUrl = data.result?.url || data.result?.download?.url || data.data?.url || data.url;
                 
-                if (downloadUrl) break; // Si encontramos uno, salimos del bucle
+                if (downloadUrl) break; // Si encontramofs uno, salimos del bucle
             } catch (e) {
                 console.log(`Fallo en: ${api}`);
             }
