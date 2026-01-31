@@ -10,10 +10,10 @@ const APIS = [
     name: 'Stellar-YTMP4',
     url: `https://api.stellarwa.xyz/dl/ytmp4?url=`,
     params: '&quality=360&key=Yuki-v2',
-    getVideoUrl: (data) => data?.result?.download || data?.data?.download || data?.data?.url,
-    getTitle: (data) => data?.result?.title || data?.data?.title,
-    getThumb: (data) => data?.result?.thumbnail || data?.data?.thumbnail,
-    getDuration: (data) => data?.result?.duration || data?.data?.duration
+    getVideoUrl: (data) => data?.data?.download,  // ← FIX: data.download NO result.download
+    getTitle: (data) => data?.data?.title,
+    getThumb: (data) => data?.data?.thumbnail,
+    getDuration: (data) => data?.data?.duration
   },
   {
     name: 'Adonix-Video',
@@ -38,13 +38,14 @@ async function getVideoFromApis(url, controller) {
       const encodedUrl = encodeURIComponent(url);
       const apiUrl = `${api.url}${encodedUrl}${api.params || ''}`;
       
-      console.log(`🎥 [YTMP4] Probando ${api.name}:`, apiUrl.substring(0, 80) + '...');
+      console.log(`🎥 [YTMP4] Probando ${api.name}`);
       
       const response = await fetch(apiUrl, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Referer': 'https://api.stellarwa.xyz/'
         }
       });
 
@@ -123,9 +124,10 @@ const handler = async (m, { conn, args, command }) => {
 
     const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
     
+    console.log(`⬇️ [YTMP4] Descargando video desde: ${videoUrl.substring(0, 80)}...`);
     const videoResponse = await fetch(videoUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://youtube.com/',
       },
       signal: AbortSignal.timeout(30000)
