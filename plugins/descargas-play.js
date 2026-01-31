@@ -23,15 +23,6 @@ const APIS = [
     getDuration: (data) => data?.result?.duration
   },
   { 
-    name: 'Stellar-v1-GataDios',
-    url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
-    params: '&key=GataDios',
-    getAudioUrl: (data) => data?.data?.download,
-    getTitle: (data) => data?.data?.title,
-    getThumb: (data) => data?.data?.thumbnail,
-    getDuration: (data) => data?.data?.duration
-  },
-  { 
     name: 'Stellar-v2-Yuki', 
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
     params: '&key=Yuki-v2',
@@ -124,7 +115,7 @@ const handler = async (m, { conn, args, command }) => {
 
     if (!apiResult.success) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el audio de ninguna API.\n\n*Eli Bot*`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio de ninguna API.\n\n*Pantheon Bot*`);
     }
 
     const { title, thumbnail, url: audioUrl, duration } = apiResult;
@@ -155,7 +146,7 @@ const handler = async (m, { conn, args, command }) => {
 
     const sendTextMessage = (title, duration, size) => {
       return conn.sendMessage(m.chat, {
-        text: `🎵 *${title}*\n⏱️ ${duration}\n💾 ${(size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+        text: `🎵 *${title}*\n⏱️ ${duration}\n💾 ${(size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
       }, { quoted: m });
     };
 
@@ -165,7 +156,7 @@ const handler = async (m, { conn, args, command }) => {
         const thumbBuffer = await thumbResponse.arrayBuffer();
         await conn.sendMessage(m.chat, {
           image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n⏱️ ${duration}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          caption: `🎵 *${title}*\n⏱️ ${duration}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
         }, { quoted: m });
       } catch (e) {
         await sendTextMessage(title, duration, stats.size);
@@ -188,16 +179,16 @@ const handler = async (m, { conn, args, command }) => {
   } catch (error) {
     if (error.name === 'AbortError') {
       await m.react('⏰');
-      return m.reply(`⏰ *Timeout* - Canción muy pesada (>${MAX_SIZE_MB}MB)\n\n*Eli Bot*`);
+      return m.reply(`⏰ *Timeout* - Canción muy pesada (>${MAX_SIZE_MB}MB)\n\n*Pantheon Bot*`);
     }
     
     if (error.message.includes('muy pesado')) {
       await m.react('📏');
-      return m.reply(`${error.message}\n\n*Eli Bot*`);
+      return m.reply(`${error.message}\n\n*Pantheon Bot*`);
     }
     
     await m.react('✖️');
-    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Eli Bot*');
+    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Pantheon Bot*');
   }
 };
 
