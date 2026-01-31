@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 import yts from 'yt-search';
 import ytdl from 'ytdl-core';
-import { savetube } from '../lib/yt-savetube.js'; // Tu lib
+import { savetube } from '../lib/yt-savetube.js';
 
 const LimitAud = 725 * 1024 * 1024;
 const LimitVid = 425 * 1024 * 1024;
@@ -40,7 +40,7 @@ ${usedPrefix + command} emilia 420`);
 ⏰ *Duración:* ${timestamp}
 📥 *Tipo:* ${tipoDescarga}
 
-> *Probando savetube...*`,
+> *Savetube + fallback...*`,
             contextInfo: {
                 externalAdReply: {
                     title: title,
@@ -58,51 +58,64 @@ ${usedPrefix + command} emilia 420`);
         const isAudio = tipoDescarga === 'audio';
         const quality = isAudio ? 'mp3' : '720';
         
-        // SAVETUBE con DEBUG
-        console.log('🔍 Probando savetube...');
+        // SAVETUBE
+        console.log('🔍 Savetube attempt...');
         try {
             const resSave = await savetube.download(url, quality);
-            console.log('Savetube response:', resSave);
-            
+            console.log('Savetube res:', JSON.stringify(resSave, null, 2));
             if (resSave.status && resSave.result?.download) {
                 downloadUrl = resSave.result.download;
-                console.log('✅ Savetube OK:', downloadUrl);
-            } else {
-                console.log('❌ Savetube failed:', resSave.error || 'No download url');
+                console.log('✅ Savetube success');
             }
         } catch (e) {
-            console.log("❌ Error savetube:", e.message);
+            console.log('❌ Savetube error:', e.message);
         }
         
-        // FALLBACK YT-DL si savetube falla
+        // FALLBACK YT-DL
         if (!downloadUrl) {
-            console.log('🔄 Fallback ytdl-core...');
+            console.log('🔄 YTDL fallback...');
             try {
                 const info = await ytdl.getInfo(url);
-                const format = ytdl.chooseFormat(info.formats, isAudio ? { quality: 'highestaudio' } : { quality: 'highestvideo' });
-                downloadUrl = format.url;
-                console.log('✅ YTDL OK:', downloadUrl);
+                const formats = ytdl.filterFormats(info.formats, isAudio ? 'audioonly' : 'video');
+                downloadUrl = ytdl.chooseFormat(formats, { quality: isAudio ? 'highestaudio' : 'highestvideo' }).url;
+                console.log('✅ YTDL success');
             } catch (e) {
-                console.log('❌ YTDL failed:', e.message);
-                throw new Error('Savetube y ytdl fallaron. Prueba otro video.');
+                console.log('❌ YTDL error:', e.message);
+                throw new Error('Ambas fuentes fallaron.');
             }
         }
         
         const fileSize = await getFileSize(downloadUrl);
         const isDocument = ['play3', 'play4', 'playdoc'].includes(command);
         
+        const fileName = `${title.slice(0, 50)}.${isAudio ? 'mp3' : 'mp4'}`;
+        
         if (isAudio) {
             if (isDocument || fileSize > LimitAud) {
-                await conn.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'audio/mpeg', fileName: `${title.slice(0, 50)}.mp3` }, { quoted: m });
+                await conn.sendMessage(m.chat, {
+                    document: { url: downloadUrl },
+                    mimetype: 'audio/mpeg',
+                    fileName
+                }, { quoted: m });
             } else {
-                await conn.sendMessage(m.chat, { audio: { url: downloadUrl }, mimetype: 'audio/mpeg', fileName: `${title.slice(0, 50)}.mp3` }, { quoted: m });
+                await conn.sendMessage(m.chat, {
+                    audio: { url: downloadUrl },
+                    mimetype: 'audio/mpeg',
+                    fileName
+                }, { quoted: m });
             }
         } else {
+            const opts = {
+                video: { url: downloadUrl },
+                mimetype: 'video/mp4',
+                fileName,
+                caption: `🔰 ${title}`
+            };
             if (isDocument || fileSize > LimitVid) {
-                await conn.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'video/mp4', fileName: `${title.slice(0, 50)}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
-            } else {
-                await conn.sendMessage(m.chat, { video: { url: downloadUrl }, mimetype: 'video/mp4', fileName: `${title.slice(0, 50)}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
+                opts.document = opts.video;
+                delete opts.video;
             }
+            await conn.sendMessage(m.chat, opts, { quoted: m });
         }
         
         await m.react('✅');
@@ -110,8 +123,7 @@ ${usedPrefix + command} emilia 420`);
     } catch (error) {
         console.error('Handler error:', error);
         await m.react('❌');
-        m.reply(`*❌ Error:* ${error.message}
-Revisa logs del panel.`);
+        m.reply(`*❌ Error:* ${error.message}`);
     } finally {
         delete userRequests[m.sender];
     }
@@ -126,7 +138,6 @@ async function getFileSize(url) {
     }
 }
 
-// ... (handler.help, tags, command, export igual)
 handler.help = ['play', 'play2', 'play3', 'play4'];
 handler.tags = ['downloader'];
 handler.command = ['play', 'play2', 'play3', 'play4', 'musica', 'video', 'audio', 'playdoc', 'playdoc2'];
