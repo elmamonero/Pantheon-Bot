@@ -21,7 +21,7 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
     try {
         await m.react('🕓');
         
-        // Búsqueda del video
+        // Búsqueda del viideo
         let videoIdMatch = text.match(youtubeRegexID);
         let query = videoIdMatch ? `https://youtu.be/${videoIdMatch[1]}` : text;
         const searchResult = await yts(query);
