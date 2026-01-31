@@ -46,14 +46,20 @@ const handler = async (m, { conn, args, command }) => {
 
     const data = await apiResponse.json();
 
-    if (!data.status || !data.result || !data.result.url) {
+    // ✅ CORREGIDO: La estructura es data.data, no data.result
+    if (!data.status || !data.data || !data.data.url) {
+      console.log('Respuesta completa de API:', JSON.stringify(data, null, 2));
       await m.react('✖️');
       return m.reply(`*✖️ Error:* No se pudo obtener el audio.\n\n*Eli Bot*`);
     }
 
-    const { title, thumbnail, duration } = data.result;
-    const audioUrl = data.result.url;
+    const { title, thumbnail, url: audioUrl, duration } = data.data;
     
+    if (!audioUrl) {
+      await m.react('✖️');
+      return m.reply('*✖️ Error:* No hay enlace de descarga disponible\n\n*Eli Bot*');
+    }
+
     const fileName = `${title?.replace(/[^\w\s-]/g, '') || 'audio'}.mp3`.replace(/\s+/g, '_').substring(0, 50);
 
     // Descarga silenciosa para verificar tamaño
@@ -91,17 +97,17 @@ const handler = async (m, { conn, args, command }) => {
         const thumbBuffer = await thumbResponse.arrayBuffer();
         await conn.sendMessage(m.chat, {
           image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title || 'Audio de YouTube'}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          caption: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
         }, { quoted: m });
       } catch (e) {
         console.log('Thumbnail falló:', e.message);
         await conn.sendMessage(m.chat, {
-          text: `🎵 *${title || 'Audio de YouTube'}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+          text: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
         }, { quoted: m });
       }
     } else {
       await conn.sendMessage(m.chat, {
-        text: `🎵 *${title || 'Audio de YouTube'}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+        text: `🎵 *${title}*\n⏱️ ${duration || 'Desconocido'}\n📎 ${url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
       }, { quoted: m });
     }
 
