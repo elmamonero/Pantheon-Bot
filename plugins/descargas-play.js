@@ -1,162 +1,175 @@
-import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
 import yts from 'yt-search';
-import ytdl from 'ytdl-core';
-import { savetube } from '../lib/yt-savetube.js';
-import { ogmp3 } from '../lib/youtubedl.js';
 
-const LimitAud = 725 * 1024 * 1024;
-const LimitVid = 425 * 1024 * 1024;
-const userRequests = {};
+const MAX_SIZE_MB = 50;
+const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-const handler = async (m, { conn, command, args, text, usedPrefix }) => {
-    if (!text) return m.reply(`*🤔 ¿Qué está buscando?*
-*Ingrese el nombre de la canción o el enlace.*
+const handler = async (m, { conn, args, command }) => {
+  if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
-*Ejemplo:*
-${usedPrefix + command} emilia 420`);
-    
-    const tipoDescarga = ['play', 'musica', 'audio', 'play3'].includes(command) ? 'audio' : 'video';
-    
-    if (userRequests[m.sender]) return conn.reply(m.chat, `⏳ Espera, ya tienes una descarga en curso...`, m);
-    userRequests[m.sender] = true;
-    
-    try {
-        await m.react('🕓');
-        
-        const searchResult = await yts(text);
-        const video = searchResult.videos[0];
-        
-        if (!video) {
-            delete userRequests[m.sender];
-            return m.reply('*❌ No se encontraron resultados.*');
-        }
-        
-        const { title, thumbnail, url, timestamp } = video;
-        
-        await conn.sendMessage(m.chat, {
-            text: `📌 *Título:* ${title}
-⏰ *Duración:* ${timestamp}
-📥 *Tipo:* ${tipoDescarga}
+  let url = args[0];
+  const isUrl = /(youtube\\.com|youtu\\.be)/.test(url);
 
-> *Probando APIs...*`,
-            contextInfo: {
-                externalAdReply: {
-                    title: title,
-                    body: "Multi-API Downloader",
-                    thumbnailUrl: thumbnail,
-                    sourceUrl: url,
-                    mediaType: 1,
-                    showAdAttribution: true
-                }
-            }
-        }, { quoted: m });
-        
-        const isAudio = tipoDescarga === 'audio';
-        const quality = isAudio ? '320' : '720';
-        const apis = isAudio ? audioApis(url, quality) : videoApis(url, quality);
-        
-        const result = await tryApis(apis);
-        if (!result.url) throw new Error('Todas las APIs fallaron');
-        
-        const fileSize = await getFileSize(result.url);
-        const isDocument = ['play3', 'play4', 'playdoc', 'playdoc2'].includes(command);
-        const fileName = `${title.slice(0, 50)}.${isAudio ? 'mp3' : 'mp4'}`;
-        
-        if (isAudio) {
-            if (isDocument || fileSize > LimitAud) {
-                await conn.sendMessage(m.chat, {
-                    document: { url: result.url },
-                    mimetype: 'audio/mpeg',
-                    fileName
-                }, { quoted: m });
-            } else {
-                await conn.sendMessage(m.chat, {
-                    audio: { url: result.url },
-                    mimetype: 'audio/mpeg',
-                    fileName
-                }, { quoted: m });
-            }
-        } else {
-            const opts = {
-                mimetype: 'video/mp4',
-                fileName,
-                caption: `🔰 ${title}`
-            };
-            if (isDocument || fileSize > LimitVid) {
-                opts.document = { url: result.url };
-            } else {
-                opts.video = { url: result.url };
-            }
-            await conn.sendMessage(m.chat, opts, { quoted: m });
-        }
-        
-        await m.react('✅');
-        
-    } catch (error) {
-        console.error(error);
-        await m.react('❌');
-        m.reply(`*❌ Error:* ${error.message}`);
-    } finally {
-        delete userRequests[m.sender];
+  if (!isUrl) {
+    const searchResults = await yts(args.join(' '));
+    if (!searchResults.videos.length) {
+      return m.reply('No se encontraron resultados para tu búsqueda');
     }
+    url = searchResults.videos[0].url;
+  }
+
+  try {
+    await m.react('🕒');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    // NUEVAS APIs - Usamos la primera que funcione
+    const apis = [
+      `https://api-adonix.ultraplus.click/download/ytaudio?apikey=AdonixKey2lph3k2117&url=${encodeURIComponent(url)}`,
+      `https://api.vreden.my.id/api/v1/download/play/audio?query=${encodeURIComponent(args.join(' '))}`
+    ];
+
+    let data = null;
+    let apiUsed = '';
+
+    for (const apiUrl of apis) {
+      try {
+        console.log('Probando API:', apiUrl);
+        const apiResponse = await fetch(apiUrl, { 
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        if (apiResponse.ok) {
+          data = await apiResponse.json();
+          apiUsed = apiUrl;
+          console.log('API exitosa:', apiUrl);
+          break;
+        }
+      } catch (e) {
+        console.log(`API ${apiUrl} falló:`, e.message);
+        continue;
+      }
+    }
+
+    clearTimeout(timeoutId);
+
+    if (!data) {
+      await m.react('✖️');
+      return m.reply(`*✖️ Error:* Todas las APIs fallaron.\\n\\n*Eli Bot*`);
+    }
+
+    // Adaptar respuesta según la API usada
+    let title, thumbnail, audioUrl, video_url, duration;
+    
+    if (apiUsed.includes('adonix')) {
+      // API Adonix format
+      title = data.title || 'Audio de YouTube';
+      thumbnail = data.thumb || data.thumbnail;
+      audioUrl = data.url || data.download_url;
+      duration = data.duration || 'Desconocido';
+      video_url = url;
+    } else {
+      // API Vreden format  
+      title = data.title || data.result?.title || 'Audio de YouTube';
+      thumbnail = data.thumbnail || data.result?.thumbnail;
+      audioUrl = data.result?.download_url || data.download_url;
+      duration = data.duration || data.result?.duration || 'Desconocido';
+      video_url = data.video_url || url;
+    }
+
+    if (!audioUrl) {
+      await m.react('✖️');
+      return m.reply('*✖️ Error:* No hay enlace de descarga disponible\\n\\n*Eli Bot*');
+    }
+
+    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
+
+    // Descarga silenciosa
+    const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
+    
+    console.log('Descargando audio desde:', audioUrl);
+
+    const audioResponse = await fetch(audioUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://youtube.com/',
+      },
+      signal: AbortSignal.timeout(20000)
+    });
+
+    if (!audioResponse.ok) {
+      throw new Error(`Error descarga: ${audioResponse.status}`);
+    }
+
+    const arrayBuffer = await audioResponse.arrayBuffer();
+    
+    if (arrayBuffer.byteLength > MAX_SIZE_BYTES) {
+      throw new Error(`Archivo muy pesado (${(arrayBuffer.byteLength/1024/1024).toFixed(1)}MB). Máximo ${MAX_SIZE_MB}MB`);
+    }
+
+    fs.writeFileSync(dest, Buffer.from(arrayBuffer));
+    const stats = fs.statSync(dest);
+
+    // Thumbnail + info
+    if (thumbnail) {
+      try {
+        const thumbResponse = await fetch(thumbnail, { 
+          signal: AbortSignal.timeout(5000) 
+        });
+        const thumbBuffer = await thumbResponse.arrayBuffer();
+        await conn.sendMessage(m.chat, {
+          image: Buffer.from(thumbBuffer),
+          caption: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+        }, { quoted: m });
+      } catch (e) {
+        console.log('Thumbnail falló:', e.message);
+        await conn.sendMessage(m.chat, {
+          text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+        }, { quoted: m });
+      }
+    } else {
+      await conn.sendMessage(m.chat, {
+        text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${video_url}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Eli Bot*`,
+      }, { quoted: m });
+    }
+
+    // Audio directo (primero para mejor UX)
+    await conn.sendMessage(m.chat, {
+      audio: { url: audioUrl },
+      mimetype: 'audio/mpeg',
+      fileName,
+    }, { quoted: m });
+
+    // Cleanup
+    if (fs.existsSync(dest)) {
+      fs.unlinkSync(dest);
+    }
+    
+    await m.react('✅');
+    
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      await m.react('⏰');
+      return m.reply(`⏰ *Timeout* - Canción muy pesada (>${MAX_SIZE_MB}MB)\n\n*Eli Bot*`);
+    }
+    
+    if (error.message.includes('muy pesado')) {
+      await m.react('📏');
+      return m.reply(`${error.message}\n\n*Eli Bot*`);
+    }
+    
+    console.error('Error completo:', error);
+    await m.react('✖️');
+    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Eli Bot*');
+  }
 };
 
-// APIs AUDIO (prioridad: savetube > ogmp3 > externas)
-function audioApis(url, quality) {
-    return [
-        { name: 'savetube', fn: () => savetube.download(url, 'mp3') },
-        { name: 'ogmp3', fn: () => ogmp3.download(url, quality, 'audio') },
-        { name: 'dorratz', fn: () => fetch(`https://api.dorratz.com/v3/ytdl?url=${url}`).then(r => r.json()) },
-        { name: 'neoxr', fn: () => fetch(`https://api.neoxr.eu/api/youtube?url=${url}&type=audio&quality=128kbps&apikey=GataDios`).then(r => r.json()) }
-    ];
-}
-
-// APIs VIDEO
-function videoApis(url, quality) {
-    return [
-        { name: 'savetube', fn: () => savetube.download(url, '720') },
-        { name: 'ogmp3', fn: () => ogmp3.download(url, quality, 'video') },
-        { name: 'siputzx', fn: () => fetch(`https://api.siputzx.my.id/api/d/ytmp4?url=${url}`).then(r => r.json()) },
-        { name: 'neoxr', fn: () => fetch(`https://api.neoxr.eu/api/youtube?url=${url}&type=video&quality=720p&apikey=GataDios`).then(r => r.json()) }
-    ];
-}
-
-// Prueba APIs hasta encontrar una que funcione
-async function tryApis(apis) {
-    for (const api of apis) {
-        try {
-            console.log(`🔍 Probando ${api.name}...`);
-            const data = await api.fn();
-            
-            let url = null;
-            if (api.name === 'savetube' && data.result?.download) url = data.result.download;
-            else if (api.name === 'ogmp3' && data.result?.download) url = data.result.download;
-            else if (api.name === 'dorratz') url = data.medias?.find(m => m.quality === "160kbps" && m.extension === "mp3")?.url;
-            else if (api.name === 'neoxr') url = data.data?.url;
-            else if (api.name === 'siputzx') url = data.dl;
-            
-            if (url) {
-                console.log(`✅ ${api.name} OK`);
-                return { url };
-            }
-        } catch (e) {
-            console.log(`❌ ${api.name}: ${e.message}`);
-        }
-    }
-    return { url: null };
-}
-
-async function getFileSize(url) {
-    try {
-        const response = await fetch(url, { method: 'HEAD' });
-        return parseInt(response.headers.get('content-length') || 0);
-    } catch {
-        return 0;
-    }
-}
-
-handler.help = ['play', 'play2', 'play3', 'play4'];
-handler.tags = ['downloader'];
-handler.command = ['play', 'play2', 'play3', 'play4', 'musica', 'video', 'audio', 'playdoc', 'playdoc2'];
-
+handler.help = ['play <nombre|URL>'];
+handler.command = ['play'];
+handler.tags = ['descargas'];
 export default handler;
