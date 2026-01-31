@@ -15,13 +15,12 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
 
     const tipoDescarga = ['play', 'musica', 'play3'].includes(command) ? 'audio' : 'video';
     
-    if (userRequests[m.sender]) return await conn.reply(m.chat, `⏳ Espere, ya tiene una descarga en curso...`, m);
+    if (userRequests[m.sender]) return await conn.reply(m.chat, `⏳ Espera, ya tienes una descarga en curso...`, m);
     userRequests[m.sender] = true;
 
     try {
         await m.react('🕓');
         
-        // Búsqueda del viideo
         let videoIdMatch = text.match(youtubeRegexID);
         let query = videoIdMatch ? `https://youtu.be/${videoIdMatch[1]}` : text;
         const searchResult = await yts(query);
@@ -34,76 +33,62 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
 
         const { title, thumbnail, url, timestamp } = video;
 
-        // Mensaje de info inicial
-        await conn.sendMessage(m.chat, {
-            image: { url: thumbnail },
-            caption: `📌 *Título:* ${title}\n⏰ *Duración:* ${timestamp}\n📥 *Tipo:* ${tipoDescarga}\n\n> *Descargando mediante servidores de alta capacidad...*`
+        // Mensaje con carátula y botones/info
+        await conn.sendMessage(m.chat, { 
+            text: `📌 *Título:* ${title}\n⏰ *Duración:* ${timestamp}\n📥 *Tipo:* ${tipoDescarga}\n\n> *Descargando mediante servidores de alta capacidad...*`,
+            contextInfo: {
+                externalAdReply: {
+                    title: title,
+                    body: "YouTube Downloader",
+                    thumbnailUrl: thumbnail,
+                    sourceUrl: url,
+                    mediaType: 1,
+                    showAdAttribution: true,
+                    renderLargerThumbnail: true
+                }
+            }
         }, { quoted: m });
 
-        let mediaData = null;
+        let downloadUrl = null;
         const isAudio = ['play', 'musica', 'play3'].includes(command);
+        const quality = isAudio ? '320' : '720';
 
-        // --- Lógica de APIs (Savetube, OGMP3 y Fallbacks) ---
-        const download = async () => {
-            if (isAudio) {
-                // Intentar Audio
-                try { 
-                    let res = await savetube.download(url, '320');
-                    if (res?.result?.download) return res.result.download;
-                } catch {}
-                try { 
-                    let res = await ogmp3.download(url, '320', 'audio');
-                    if (res?.result?.download) return res.result.download;
-                } catch {}
-                // Fallback APIs externas
-                const fallbacks = [
-                    `https://api.alyachan.dev/api/ytmp3?url=${url}`,
-                    `https://api.zenkey.my.id/api/download/ytmp3?apikey=zenkey&url=${url}`
-                ];
-                for (let api of fallbacks) {
-                    try {
-                        let res = await fetch(api).then(r => r.json());
-                        let link = res.result?.url || res.data?.url || res.url;
-                        if (link) return link;
-                    } catch {}
-                }
-            } else {
-                // Intentar Video
-                try { 
-                    let res = await savetube.download(url, '720');
-                    if (res?.result?.download) return res.result.download;
-                } catch {}
-                try { 
-                    let res = await ogmp3.download(url, '720', 'video');
-                    if (res?.result?.download) return res.result.download;
-                } catch {}
-                // Fallback Video
-                try {
-                    let res = await fetch(`https://api.alyachan.dev/api/ytmp4?url=${url}`).then(r => r.json());
-                    if (res.result?.url) return res.result.url;
-                } catch {}
+        // --- Intento 1: Savetube ---
+        try {
+            const resSave = await savetube.download(url, quality);
+            downloadUrl = resSave?.result?.download || resSave?.download || resSave?.link;
+        } catch (e) {
+            console.log("Savetube falló, intentando con OGMP3...");
+        }
+
+        // --- Intento 2: OGMP3 (Si Savetube falló) ---
+        if (!downloadUrl) {
+            try {
+                const resOG = await ogmp3.download(url, quality, isAudio ? 'audio' : 'video');
+                downloadUrl = resOG?.result?.download || resOG?.download || resOG?.link;
+            } catch (e) {
+                console.log("OGMP3 también falló.");
             }
-            return null;
-        };
+        }
 
-        mediaData = await download();
+        if (!downloadUrl) throw new Error('No se pudo obtener el enlace de descarga de ninguno de los servidores.');
 
-        if (!mediaData) throw new Error('No se pudo obtener el enlace de descarga.');
-
-        const fileSize = await getFileSize(mediaData);
+        const fileSize = await getFileSize(downloadUrl);
         const isDocument = ['play3', 'play4', 'playdoc'].includes(command);
 
         if (isAudio) {
+            // Envío de Audio / MP3
             if (isDocument || fileSize > LimitAud) {
-                await conn.sendMessage(m.chat, { document: { url: mediaData }, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
+                await conn.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
             } else {
-                await conn.sendMessage(m.chat, { audio: { url: mediaData }, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
+                await conn.sendMessage(m.chat, { audio: { url: downloadUrl }, mimetype: 'audio/mpeg', fileName: `${title}.mp3` }, { quoted: m });
             }
         } else {
+            // Envío de Video / MP4
             if (isDocument || fileSize > LimitVid) {
-                await conn.sendMessage(m.chat, { document: { url: mediaData }, mimetype: 'video/mp4', fileName: `${title}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
+                await conn.sendMessage(m.chat, { document: { url: downloadUrl }, mimetype: 'video/mp4', fileName: `${title}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
             } else {
-                await conn.sendMessage(m.chat, { video: { url: mediaData }, mimetype: 'video/mp4', fileName: `${title}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
+                await conn.sendMessage(m.chat, { video: { url: downloadUrl }, mimetype: 'video/mp4', fileName: `${title}.mp4`, caption: `🔰 ${title}` }, { quoted: m });
             }
         }
 
@@ -112,6 +97,7 @@ const handler = async (m, { conn, command, args, text, usedPrefix }) => {
     } catch (error) {
         console.error(error);
         await m.react('❌');
+        m.reply(`*❌ Error:* No se pudo completar la descarga.\n\n*Motivo:* ${error.message}`);
     } finally {
         delete userRequests[m.sender];
     }
