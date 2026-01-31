@@ -15,6 +15,15 @@ const APIS = [
     getDuration: (data) => data?.result?.duration?.timestamp || data?.result?.timestamp
   },
   { 
+    name: 'Stellar', 
+    url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
+    params: '&key=GataDios',
+    getAudioUrl: (data) => data?.result?.audio || data?.result?.download || data?.result?.url,
+    getTitle: (data) => data?.result?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.result?.image,
+    getDuration: (data) => data?.result?.duration
+  },
+  { 
     name: 'Adonix', 
     url: `https://api-adonix.ultraplus.click/download/ytaudio?apikey=AdonixKey2lph3k2117&url=`,
     getAudioUrl: (data) => data?.data?.url,
@@ -28,7 +37,7 @@ async function getAudioFromApis(url, controller) {
   for (const api of APIS) {
     try {
       const encodedUrl = encodeURIComponent(url);
-      const apiUrl = `${api.url}${encodedUrl}`;
+      const apiUrl = `${api.url}${encodedUrl}${api.params || ''}`;
       
       console.log(`🔄 Probando ${api.name}:`, apiUrl);
       
