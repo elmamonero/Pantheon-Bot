@@ -10,10 +10,17 @@ const APIS = [
     name: 'Vreden', 
     url: `https://api.vreden.my.id/api/v1/download/youtube/audio?url=`,
     params: '&quality=128',
-    getAudioUrl: (data) => data?.result?.download?.url || data?.result?.url || data?.url,
-    getTitle: (data) => data?.result?.title || data?.title,
-    getThumb: (data) => data?.result?.thumbnail || data?.thumbnail,
-    getDuration: (data) => data?.result?.duration || data?.duration
+    getAudioUrl: (data) => {
+      // Verifica si download.status es false (error de conversión)
+      if (data?.result?.download?.status === false) {
+        console.log('Vreden: Error de conversión -', data?.result?.download?.message);
+        return null;
+      }
+      return data?.result?.download?.url || data?.result?.url || data?.url;
+    },
+    getTitle: (data) => data?.result?.metadata?.title || data?.result?.title || data?.title,
+    getThumb: (data) => data?.result?.metadata?.thumbnail || data?.result?.metadata?.image || data?.result?.thumbnail,
+    getDuration: (data) => data?.result?.metadata?.duration?.timestamp || data?.result?.duration
   },
   { 
     name: 'Adonix', 
@@ -42,10 +49,12 @@ async function getAudioFromApis(url, controller) {
 
       if (response.ok) {
         const data = await response.json();
+        console.log(`${api.name} status:`, data?.status, 'download:', data?.result?.download?.status);
+        
         const audioUrl = api.getAudioUrl(data);
         
         if (audioUrl) {
-          console.log(`✅ ${api.name} exitosa`);
+          console.log(`✅ ${api.name} exitosa - ${api.getTitle(data)}`);
           return {
             success: true,
             api: api.name,
@@ -54,6 +63,8 @@ async function getAudioFromApis(url, controller) {
             url: audioUrl,
             duration: api.getDuration(data) || 'Desconocido'
           };
+        } else {
+          console.log(`❌ ${api.name}: No audio URL válida`);
         }
       }
     } catch (e) {
@@ -83,7 +94,7 @@ const handler = async (m, { conn, args, command }) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // 🔥 SISTEMA DE APIs SECUENCIAL (Vreden PRIMERO)
+    // 🔥 VREDEN SIEMPRE PRIMERO (para testing)
     const apiResult = await getAudioFromApis(url, controller);
     clearTimeout(timeoutId);
 
@@ -121,7 +132,6 @@ const handler = async (m, { conn, args, command }) => {
     fs.writeFileSync(dest, Buffer.from(arrayBuffer));
     const stats = fs.statSync(dest);
 
-    // Función auxiliar para enviar mensaje de texto (CORREGIDA)
     const sendTextMessage = (title, duration, url, size, apiName) => {
       return conn.sendMessage(m.chat, {
         text: `🎵 *${title}*\n⏱️ ${duration}\n📎 ${url}\n💾 ${(size/1024/1024).toFixed(1)}MB\n🔗 *${apiName} API*\n\n*Eli Bot*`,
