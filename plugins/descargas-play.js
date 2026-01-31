@@ -7,9 +7,9 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'Stellar-v1-Yuki', 
+    name: 'Stellar-v1',           // ← NOMBRE CORRECTO
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
-    params: '&key=GataDios',
+    params: '&key=GataDios',      // ← KEY CORRECTA para v1
     getAudioUrl: (data) => data?.data?.download,
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
