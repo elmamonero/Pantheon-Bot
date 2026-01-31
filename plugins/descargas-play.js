@@ -7,12 +7,12 @@ const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
 const APIS = [
   { 
-    name: 'FAA-ytplay',           // ← PRIMERA POSICIÓN
+    name: 'FAA-ytplay',           
     url: `https://api-faa.my.id/faa/ytplay?query=`,
-    getAudioUrl: (data) => data?.result?.download || data?.data?.download || data?.url,
-    getTitle: (data) => data?.result?.title || data?.data?.title || data?.title,
-    getThumb: (data) => data?.result?.thumbnail || data?.data?.thumbnail || data?.thumb,
-    getDuration: (data) => data?.result?.duration || data?.data?.duration || data?.duration
+    getAudioUrl: (data) => data?.result?.mp3,  // ← ¡FIX! Usa "mp3" no "download"
+    getTitle: (data) => data?.result?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.result?.thumb,
+    getDuration: (data) => data?.result?.duration
   },
   { 
     name: 'Stellar-v1-GataDios',
@@ -70,7 +70,6 @@ async function getAudioFromApis(url, controller) {
       if (response.ok) {
         const data = await response.json();
         console.log(`${api.name} status:`, data?.status);
-        console.log(`${api.name} estructura:`, JSON.stringify(data, null, 2).substring(0, 200));
         
         if (data?.status !== true && data?.status !== 'true') {
           console.log(`❌ ${api.name}: Status inválido (${data?.status || 'undefined'})`);
