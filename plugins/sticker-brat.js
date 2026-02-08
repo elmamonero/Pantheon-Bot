@@ -5,7 +5,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const fetchSticker = async (text, attempt = 1) => {
     try {
-        const response = await axios.get(`https://api.hanggts.xyz/imagecreator/brat`, {
+        const response = await axios.get(`https://api.neoxr.eu/api/brat?text=ayo+scroll+fesnuk+%F0%9F%98%9C&apikey=F0svKu`, {
             params: { text },
             responseType: 'arraybuffer',
         })
