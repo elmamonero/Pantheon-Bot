@@ -9,7 +9,7 @@ const APIS = [
   {
     name: 'Stellar-YTMP4',
     url: `https://api.stellarwa.xyz/dl/ytmp4?url=`,
-    params: '&quality=360&key=GataDios',
+    params: '&quality=720&key=GataDios',
     getVideoUrl: (data) => data?.data?.download,  // ← FIX: data.download NO result.download
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
