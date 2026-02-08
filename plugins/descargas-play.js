@@ -2,17 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import yts from 'yt-search';
 
-const MAX_SIZE_MB = 50;
+// Aumentamos el límite a 250MB para permitir canciones muy largas
+const MAX_SIZE_MB = 250;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-// Función mejorada para manejar duración en segundos o strings
+// Función para formatear duración (flexible para lo que envíe la API)
 function formatDuration(duration) {
   if (!duration) return 'Desconocido';
-  
-  // Si ya viene formateado (ej: "03:45"), lo devolvemos tal cual
   if (typeof duration === 'string' && duration.includes(':')) return duration;
   
-  // Si es un número (segundos), lo formateamos
   const seconds = parseInt(duration);
   if (isNaN(seconds)) return 'Desconocido';
   
@@ -29,7 +27,7 @@ const APIS = [
     getAudioUrl: (data) => data?.data?.download,
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
-    getDuration: (data) => data?.data?.duration || data?.data?.timestamp // Stellar suele usar 'duration' o 'timestamp'
+    getDuration: (data) => data?.data?.duration || data?.data?.timestamp
   },
   { 
     name: 'Stellar-v2-Yuki', 
@@ -82,26 +80,21 @@ async function getAudioFromApis(url, controller) {
 
       if (response.ok) {
         const data = await response.json();
-        
-        if (data?.status !== true && data?.status !== 'true') {
-          continue;
-        }
+        if (data?.status !== true && data?.status !== 'true') continue;
         
         const audioUrl = api.getAudioUrl(data);
-        
         if (audioUrl) {
-          const rawDuration = api.getDuration(data);
           return {
             success: true,
             title: api.getTitle(data) || 'Audio de YouTube',
             thumbnail: api.getThumb(data),
             url: audioUrl,
-            duration: formatDuration(rawDuration) // Usa la nueva lógica
+            duration: formatDuration(api.getDuration(data))
           };
         }
       }
     } catch (e) {
-      // Sin logs
+      // Intenta con la siguiente API
     }
   }
   return { success: false };
@@ -111,100 +104,79 @@ const handler = async (m, { conn, args, command }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
   let url = args[0];
+  let searchData = null;
   const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
     const searchResults = await yts(args.join(' '));
-    if (!searchResults.videos.length) {
-      return m.reply('No se encontraron resultados para tu búsqueda');
-    }
-    url = searchResults.videos[0].url;
+    if (!searchResults.videos.length) return m.reply('No se encontraron resultados');
+    searchData = searchResults.videos[0];
+    url = searchData.url;
   }
 
   try {
     await m.react('🕒');
 
+    // Timeout de búsqueda extendido a 2 minutos para procesos pesados
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
 
-    const apiResult = await getAudioFromApis(url, controller);
+    let apiResult = await getAudioFromApis(url, controller);
     clearTimeout(timeoutId);
 
     if (!apiResult.success) {
       await m.react('✖️');
-      return m.reply(`*✖️ Error:* No se pudo obtener el audio de ninguna API.\n\n*Pantheon Bot*`);
+      return m.reply(`*✖️ Error:* No se pudo obtener el audio. Posiblemente el video es demasiado largo para las APIs actuales.`);
     }
 
-    const { title, thumbnail, url: audioUrl, duration } = apiResult;
-    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.replace(/\s+/g, '_').substring(0, 50);
+    const finalDuration = apiResult.duration === 'Desconocido' && searchData 
+      ? searchData.timestamp 
+      : apiResult.duration;
 
-    const dest = path.join('/tmp', `${Date.now()}_${fileName}`);
+    const { title, thumbnail, url: audioUrl } = apiResult;
+    const fileName = `${title.replace(/[^\w\s-]/g, '')}.mp3`.substring(0, 50);
+    const dest = path.join('/tmp', `${Date.now()}_audio.mp3`);
     
+    // Descarga sin señal de aborto agresiva para permitir archivos grandes
     const audioResponse = await fetch(audioUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://youtube.com/',
-      },
-      signal: AbortSignal.timeout(20000)
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://youtube.com/' }
     });
 
-    if (!audioResponse.ok) {
-      throw new Error(`Error descarga: ${audioResponse.status}`);
-    }
+    if (!audioResponse.ok) throw new Error('Error al descargar el archivo de la API.');
 
     const arrayBuffer = await audioResponse.arrayBuffer();
-    
     if (arrayBuffer.byteLength > MAX_SIZE_BYTES) {
-      throw new Error(`Archivo muy pesado (${(arrayBuffer.byteLength/1024/1024).toFixed(1)}MB). Máximo ${MAX_SIZE_MB}MB`);
+      throw new Error(`El archivo es demasiado grande (${(arrayBuffer.byteLength/1024/1024).toFixed(1)}MB). El límite es ${MAX_SIZE_MB}MB.`);
     }
 
     fs.writeFileSync(dest, Buffer.from(arrayBuffer));
     const stats = fs.statSync(dest);
+    const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
 
-    const sendTextMessage = (title, duration, size) => {
-      return conn.sendMessage(m.chat, {
-        text: `🎵 *${title}*\n⏱️ ${duration}\n💾 ${(size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
-      }, { quoted: m });
-    };
+    const caption = `🎵 *${title}*\n⏱️ ${finalDuration}\n💾 ${sizeMB}MB\n\n*Pantheon Bot*`;
 
+    // Enviar información
     if (thumbnail) {
-      try {
-        const thumbResponse = await fetch(thumbnail, { signal: AbortSignal.timeout(5000) });
-        const thumbBuffer = await thumbResponse.arrayBuffer();
-        await conn.sendMessage(m.chat, {
-          image: Buffer.from(thumbBuffer),
-          caption: `🎵 *${title}*\n⏱️ ${duration}\n💾 ${(stats.size/1024/1024).toFixed(1)}MB\n\n*Pantheon Bot*`,
-        }, { quoted: m });
-      } catch (e) {
-        await sendTextMessage(title, duration, stats.size);
-      }
+      await conn.sendMessage(m.chat, { image: { url: thumbnail }, caption }, { quoted: m });
     } else {
-      await sendTextMessage(title, duration, stats.size);
+      await m.reply(caption);
     }
 
+    // Enviar el Audio
     await conn.sendMessage(m.chat, {
-      audio: { url: audioUrl },
+      audio: fs.readFileSync(dest),
       mimetype: 'audio/mpeg',
-      fileName,
+      fileName: `${title}.mp3`,
     }, { quoted: m });
 
+    // Limpieza
     if (fs.existsSync(dest)) fs.unlinkSync(dest);
-    
     await m.react('✅');
 
   } catch (error) {
-    if (error.name === 'AbortError') {
-      await m.react('⏰');
-      return m.reply(`⏰ *Timeout* - Canción muy pesada (>${MAX_SIZE_MB}MB)\n\n*Pantheon Bot*`);
-    }
-    
-    if (error.message.includes('muy pesado')) {
-      await m.react('📏');
-      return m.reply(`${error.message}\n\n*Pantheon Bot*`);
-    }
-    
     await m.react('✖️');
-    m.reply('⚠️ Falló la descarga. Prueba con otra canción.\n\n*Pantheon Bot*');
+    console.error(error);
+    m.reply(`⚠️ *Error:* ${error.message}`);
   }
 };
 
