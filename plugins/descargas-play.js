@@ -5,9 +5,17 @@ import yts from 'yt-search';
 const MAX_SIZE_MB = 50;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 
-// Función para formatear duración
-function formatDuration(seconds) {
-  if (!seconds || isNaN(seconds)) return 'Desconocido';
+// Función mejorada para manejar duración en segundos o strings
+function formatDuration(duration) {
+  if (!duration) return 'Desconocido';
+  
+  // Si ya viene formateado (ej: "03:45"), lo devolvemos tal cual
+  if (typeof duration === 'string' && duration.includes(':')) return duration;
+  
+  // Si es un número (segundos), lo formateamos
+  const seconds = parseInt(duration);
+  if (isNaN(seconds)) return 'Desconocido';
+  
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -21,7 +29,7 @@ const APIS = [
     getAudioUrl: (data) => data?.data?.download,
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
-    getDuration: (data) => data?.data?.duration
+    getDuration: (data) => data?.data?.duration || data?.data?.timestamp // Stellar suele usar 'duration' o 'timestamp'
   },
   { 
     name: 'Stellar-v2-Yuki', 
@@ -30,7 +38,7 @@ const APIS = [
     getAudioUrl: (data) => data?.data?.download,
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
-    getDuration: (data) => data?.data?.duration
+    getDuration: (data) => data?.data?.duration || data?.data?.timestamp
   },
   { 
     name: 'FAA-ytplay',           
@@ -88,7 +96,7 @@ async function getAudioFromApis(url, controller) {
             title: api.getTitle(data) || 'Audio de YouTube',
             thumbnail: api.getThumb(data),
             url: audioUrl,
-            duration: formatDuration(rawDuration)
+            duration: formatDuration(rawDuration) // Usa la nueva lógica
           };
         }
       }
