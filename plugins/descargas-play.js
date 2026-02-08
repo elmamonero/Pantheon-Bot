@@ -15,12 +15,13 @@ function formatDuration(seconds) {
 
 const APIS = [
   { 
-    name: 'FAA-ytplay',           
-    url: `https://api-faa.my.id/faa/ytplay?query=`,
-    getAudioUrl: (data) => data?.result?.mp3,
-    getTitle: (data) => data?.result?.title,
-    getThumb: (data) => data?.result?.thumbnail || data?.result?.thumb,
-    getDuration: (data) => data?.result?.duration
+    name: 'Stellar-GataDios', 
+    url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
+    params: '&key=GataDios',
+    getAudioUrl: (data) => data?.data?.download,
+    getTitle: (data) => data?.data?.title,
+    getThumb: (data) => data?.data?.thumbnail,
+    getDuration: (data) => data?.data?.duration
   },
   { 
     name: 'Stellar-v2-Yuki', 
@@ -30,6 +31,14 @@ const APIS = [
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
     getDuration: (data) => data?.data?.duration
+  },
+  { 
+    name: 'FAA-ytplay',           
+    url: `https://api-faa.my.id/faa/ytplay?query=`,
+    getAudioUrl: (data) => data?.result?.mp3,
+    getTitle: (data) => data?.result?.title,
+    getThumb: (data) => data?.result?.thumbnail || data?.result?.thumb,
+    getDuration: (data) => data?.result?.duration
   },
   { 
     name: 'Ootaizumi', 
@@ -79,7 +88,7 @@ async function getAudioFromApis(url, controller) {
             title: api.getTitle(data) || 'Audio de YouTube',
             thumbnail: api.getThumb(data),
             url: audioUrl,
-            duration: formatDuration(rawDuration) // ← Duración formateada MM:SS
+            duration: formatDuration(rawDuration)
           };
         }
       }
@@ -94,7 +103,7 @@ const handler = async (m, { conn, args, command }) => {
   if (!args[0]) return m.reply('Por favor, ingresa un nombre o URL de un video de YouTube');
 
   let url = args[0];
-  const isUrl = /(youtube\\.com|youtu\\.be)/.test(url);
+  const isUrl = /(youtube\.com|youtu\.be)/.test(url);
 
   if (!isUrl) {
     const searchResults = await yts(args.join(' '));
@@ -165,7 +174,6 @@ const handler = async (m, { conn, args, command }) => {
       await sendTextMessage(title, duration, stats.size);
     }
 
-    // ← SIN nombre de API aquí
     await conn.sendMessage(m.chat, {
       audio: { url: audioUrl },
       mimetype: 'audio/mpeg',
