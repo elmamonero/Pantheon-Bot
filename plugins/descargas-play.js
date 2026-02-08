@@ -25,7 +25,7 @@ const APIS = [
   { 
     name: 'Stellar-v2-Yuki', 
     url: `https://api.stellarwa.xyz/dl/youtubeplay?query=`,
-    params: '&key=Yuki-v2',
+    params: '&key=YukiWaBot',
     getAudioUrl: (data) => data?.data?.download,
     getTitle: (data) => data?.data?.title,
     getThumb: (data) => data?.data?.thumbnail,
